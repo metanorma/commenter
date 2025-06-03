@@ -167,7 +167,7 @@ Options:
 
 `-o, --output FILE`:: Output DOCX file (default: filled_comments.docx)
 `-t, --template FILE`:: Custom template file
-`-s, --shading`:: Apply status-based cell shading (FIXME: not yet supported)
+`-s, --shading`:: Apply status-based cell shading
 
 === Comment ID format
 
@@ -211,13 +211,8 @@ flowchart LR
 
 === Shading Rules
 
-WARNING: Cell shading is not currently implemented.
-
-The `--shading` option is accepted but will only print status information to the
-console.
-
-When the `--shading` option is used, the following status patterns would be
-recognized:
+When the `--shading` option is used, the following status patterns are
+recognized and applied to the observations column:
 
 |===
 | Status Pattern | Intended Color | Hex Code | Example
@@ -281,4 +276,3 @@ https://www.ribose.com[Ribose Inc.]
 
 The gem is available as open source under the terms of the
 https://opensource.org/licenses/BSD-2-Clause[2-Clause BSD License].
-
