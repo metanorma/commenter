@@ -1,0 +1,284 @@
+= Commenter: ISO Comment Sheet Processor
+
+image:https://img.shields.io/gem/v/commenter.svg["Gem Version", link="https://rubygems.org/gems/commenter"]
+image:https://github.com/metanorma/commenter/actions/workflows/rake.yml/badge.svg["Build Status", link="https://github.com/metanorma/commenter/actions/workflows/rake.yml"]
+image:https://img.shields.io/github/issues-pr-raw/metanorma/commenter.svg["Pull Requests", link="https://github.com/metanorma/commenter/pulls"]
+image:https://img.shields.io/github/commits-since/metanorma/commenter/latest.svg["Commits since latest",link="https://github.com/metanorma/commenter/releases"]
+
+== Purpose
+
+Commenter is a Ruby gem for working with ISO comment sheets in DOCX format.
+
+It provides utilities for parsing, manipulating, and serializing ISO comment
+data, converting between DOCX and structured YAML with schema validation.
+
+The format is taken from:
+
+* "ISO/IEC/CEN/CENELEC electronic balloting commenting template/version 2012-03"
+
+This gem only supports plain text comment extraction and filling. Only use this
+to handle plain text comments and resolutions.
+
+NOTE: Mathematical formulas, images, and complex formatting are not supported
+due to limitations in the underlying docx gem. Comments containing such elements
+will have their text content extracted, but formatting and embedded objects will
+be lost.
+
+== Installation
+
+Add this line to your application's Gemfile:
+
+[source,ruby]
+----
+gem 'commenter'
+----
+
+And then execute:
+
+[source,shell]
+----
+$ bundle install
+----
+
+Or install it yourself as:
+
+[source,shell]
+----
+$ gem install commenter
+----
+
+== Usage
+
+=== Importing comments from DOCX
+
+Convert an ISO comment sheet DOCX file to structured YAML:
+
+[source,shell]
+----
+$ commenter import "ISO 80000-2 review comments.docx" -o comments.yaml
+----
+
+This will create two files:
+
+`comments.yaml`:: The structured comment data
+`schema/iso_comment_2012-03.yaml`:: The YAML schema for validation
+
+==== Import options
+
+[source,shell]
+----
+$ commenter import input.docx -o comments.yaml --exclude-observations --schema-dir schemas/
+----
+
+Options:
+
+`-o, --output FILE`:: Output YAML file (default: comments.yaml)
+`-e, --exclude-observations`:: Skip the observations column
+`--schema-dir DIR`:: Directory for schema file (default: schema)
+
+==== Metadata (extraction limitation)
+
+WARNING: Due to a limitation in the underlying `docx` gem, metadata fields
+(Date, Document, Project) from the DOCX header cannot be automatically
+extracted. This is because the required functionality is not yet merged (see
+https://github.com/ruby-docx/docx/pull/73[docx gem PR #73]).
+
+The generated YAML will have empty metadata fields that you can manually
+populate:
+
+[source,yaml]
+----
+# yaml-language-server: $schema=schema/iso_comment_2012-03.yaml
+
+version: "2012-03"
+date: ""           # Manually add: e.g., "2023-04-25"
+document: ""       # Manually add: e.g., "ISO 80000-2:2019"
+project: ""        # Manually add: e.g., "Project name"
+comments:
+----
+
+Alternatively, you can provide metadata during import using CLI options (planned
+for future release).
+
+
+==== Example YAML output
+
+[source,yaml]
+----
+# yaml-language-server: $schema=schema/iso_comment_2012-03.yaml
+
+version: "2012-03"
+date: "2023-04-25"
+document: "ISO 80000-2:2019"
+project: "Mathematics review"
+comments:
+  - id: DE-001
+    body: DE
+    locality:
+      line_number:
+      clause: "_whole document"
+      element:
+    type: ge
+    comments: |
+      The document should include more examples
+      to clarify the implementation requirements.
+    proposed_change: |
+      Add section 4.5 with practical examples
+      showing typical use cases.
+    observations: |
+      Accepted. Examples will be added in the
+      next revision.
+  - id: US-002
+    body: US
+    locality:
+      line_number: "45"
+      clause: "5.2.1"
+      element: "Table 3"
+    type: te
+    comments: |
+      The values in Table 3 appear to be
+      inconsistent with the formula in 5.1.
+    proposed_change: |
+      Correct the values in column 2 of Table 3
+      to match the calculation method.
+    observations:
+----
+
+=== Filling DOCX templates from YAML
+
+This gem contains a command-line utility to fill a DOCX template with comments
+from a YAML file. It generates a filled comment sheet that can be used for
+review and resolution tracking.
+
+The base template is the ISO comment sheet template located at
+`data/iso_comment_template_2012-03.docx`. You can also provide a custom
+template file using the `--template` option.
+
+Syntax:
+
+[source,shell]
+----
+$ commenter fill comments.yaml -o filled_comments.docx
+----
+
+==== Fill Options
+
+Options:
+
+`-o, --output FILE`:: Output DOCX file (default: filled_comments.docx)
+`-t, --template FILE`:: Custom template file
+`-s, --shading`:: Apply status-based cell shading (FIXME: not yet supported)
+
+=== Comment ID format
+
+Typical comment IDs follow the pattern: `{MB/NC}-{number}` or `{MB/NC}-{org_id}-{seq_id}`
+
+[example]
+====
+* `US-001` - First comment from ANSI (US)
+* `DE-01-002` - Second comment from organization 01 within DIN (DE)
+* `**-001` - First comment from ISO secretariat
+
+Where:
+
+* `US` = ANSI (American National Standards Institute)
+* `DE` = DIN (Deutsches Institut für Normung)
+* `**` = ISO Secretariat
+* `CC` = CalConnect
+====
+
+=== Comment Types
+
+The comment types are defined as follows:
+
+`ge`:: General comment
+`te`:: Technical comment
+`ed`:: Editorial comment
+
+=== Workflow integration
+
+[source,mermaid]
+----
+flowchart LR
+    A[ISO Comment Sheet DOCX] --> B[commenter import]
+    B --> C[YAML + Schema]
+    C --> D[Version Control, e.g. post to GitHub issues]
+    D --> E[Review Process]
+    E --> F[commenter fill, e.g. pull from resolved GitHub issues]
+    F --> G[Updated DOCX]
+    G --> H[ISO Secretariat]
+----
+
+=== Shading Rules
+
+WARNING: Cell shading is not currently implemented.
+
+The `--shading` option is accepted but will only print status information to the
+console.
+
+When the `--shading` option is used, the following status patterns would be
+recognized:
+
+|===
+| Status Pattern | Intended Color | Hex Code | Example
+
+| `accept(ed)?` | Green | #92D050 | "Accepted"
+| `awm\|accept with modifications` | Olive Green | #C4D79B | "Accept with modifications"
+| `noted` | Blue | #8DB4E2 | "Noted"
+| `reject(ed)?` | Pink | #FF99CC | "Rejected"
+| `todo` | Diagonal stripes | #D9D9D9 | "TODO: Review"
+
+|===
+
+
+== Data model
+
+The comment structure follows this schema:
+
+[source,yaml]
+----
+version: "2012-03"  # Template version
+date: string | null # Comment sheet date (manually populated)
+document: string | null # Document being reviewed (manually populated)
+project: string | null  # Project name (manually populated)
+comments:           # Array of comment objects
+  - id: string      # Comment identifier
+    body: string    # Member body abbreviation
+    locality:       # Location information
+      line_number: string | null
+      clause: string
+      element: string | null
+    type: "ge" | "te" | "ed"  # Comment type
+    comments: string          # Comment text
+    proposed_change: string   # Proposed solution
+    observations: string | null  # Secretariat observations (optional)
+----
+
+
+== Schema validation
+
+Each exported YAML file includes a schema reference for IDE support:
+
+[source,yaml]
+----
+# yaml-language-server: $schema=schema/iso_comment_2012-03.yaml
+----
+
+This enables:
+
+* Auto-completion in VS Code and other editors
+* Real-time validation
+* Inline documentation
+
+
+== Copyright
+
+This gem is developed, maintained and funded by
+https://www.ribose.com[Ribose Inc.]
+
+
+== License
+
+The gem is available as open source under the terms of the
+https://opensource.org/licenses/BSD-2-Clause[2-Clause BSD License].
+

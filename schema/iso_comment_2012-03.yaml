@@ -1,0 +1,69 @@
+# ISO Comment Template 2012-03 Schema
+# Template: "ISO/IEC/CEN/CENELEC electronic balloting commenting template/version 2012-03"
+$schema: http://json-schema.org/draft-07/schema#
+title: ISO Comment 2012-03
+description: Schema for ISO comment sheets following the 2012-03 template format
+type: object
+properties:
+  version:
+    type: string
+    const: "2012-03"
+    description: Version of the ISO commenting template
+  comments:
+    type: array
+    description: Array of comment entries from the ISO comment sheet
+    items:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: "^[A-Z*]{2,3}-\\d{2,3}(-\\d{3})?$"
+          description: "Comment ID in format: {MB/NC}-{number} or {MB/NC}-{org_id}-{seq_id}"
+          examples:
+            - "US-001"
+            - "DE-01-002"
+            - "**-001"
+        body:
+          type: string
+          description: "Member body or National committee abbreviation (extracted from ID)"
+          examples:
+            - "US"
+            - "DE"
+            - "**"
+        locality:
+          type: object
+          description: "Location information for the comment"
+          properties:
+            line_number:
+              type: ["string", "null"]
+              description: "Line number reference"
+            clause:
+              type: string
+              description: "Clause/subclause reference"
+              examples:
+                - "_whole document"
+                - "5"
+                - "4.2.1"
+            element:
+              type: ["string", "null"]
+              description: "Paragraph/Figure/Table reference"
+              examples:
+                - "2-5.7, 4th column"
+                - "Table 1"
+                - "Figure 3"
+          required: ["clause"]
+        type:
+          type: string
+          enum: ["ge", "te", "ed"]
+          description: "Type of comment: ge=general, te=technical, ed=editorial"
+        comments:
+          type: string
+          description: "The actual comment text"
+        proposed_change:
+          type: string
+          description: "Proposed change or solution"
+        observations:
+          type: ["string", "null"]
+          description: "Observations of the Secretariat (optional)"
+      required: ["id", "body", "locality", "type", "comments", "proposed_change"]
+required: ["version", "comments"]

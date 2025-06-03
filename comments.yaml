@@ -1,0 +1,687 @@
+# yaml-language-server: $schema=schema/iso_comment_2012-03.yaml
+
+---
+version: 2012-03
+comments:
+- id: DE-002
+  body: DE
+  locality:
+    line_number:
+    clause: '5'
+    element: 2-5.7,4th column
+  type: te
+  comments: The ser A should be mentioned for unique existential quantifiers too.
+  proposed_change: Add “∈A” in the formula between “x” and “p(x)”
+  observations: Accepted.
+- id: DE-003
+  body: DE
+  locality:
+    line_number:
+    clause: '6'
+    element: 2-6.6,4th column
+  type: te
+  comments: The empty set should be explained.
+  proposed_change: Add e.g “There is no element belonging to the empty set.”
+  observations: Accepted. Now “An empty set contains no elements.”
+- id: DE-004
+  body: DE
+  locality:
+    line_number:
+    clause: '6'
+    element: 2-6.15,4th column
+  type: te
+  comments: The properties of ordered n-tuples should be described separately.
+  proposed_change: ''
+  observations: Clarification needed.
+- id: DE-005
+  body: DE
+  locality:
+    line_number:
+    clause: '8'
+    element: 2-8.8,4th column
+  type: te
+  comments: Hints to explain the notions “congruence”  and “isomorphism” should be
+    included.
+  proposed_change: ''
+  observations: Accepted.
+- id: DE-006
+  body: DE
+  locality:
+    line_number:
+    clause: '8'
+    element: 2-8.15,4th column
+  type: te
+  comments: The distinction between “” and “” should be explained.
+  proposed_change: ''
+  observations: Accepted.
+- id: DE-007
+  body: DE
+  locality:
+    line_number:
+    clause: '8'
+    element: 2-8.19,2nd column,4th column
+  type: te
+  comments: The expressions “a+b” should be replaced by a more general form.
+  proposed_change: ''
+  observations: Clarification needed.
+- id: DE-008
+  body: DE
+  locality:
+    line_number:
+    clause: '8'
+    element: 2-9.3;4th column
+  type: te
+  comments: The notion “rotation angle” is not mentioned in ISO 80000-3.
+  proposed_change: The remark should be reformulated.
+  observations: 'Accepted. The text is added: “For oriented or rotation angles, the
+    angle stem:[&#x2222; "ABC"] measures the rotation from ray "BA" to ray "BC" and
+    can be positive (counterclockwise) or negative (clockwise). For oriented angles,
+    stem:[&#x2222; "ABC" != &#x2222; "CBA"] and stem:[-2pi < &#x2222; "ABC" <= 2pi
+    "unitsml(rad)"], with the conventional range being stem:[-pi < &#x2222; "ABC"
+    <= pi "unitsml(rad)"]. The non-oriented angle corresponds to the absolute value
+    or smallest positive representation of the oriented angle.”'
+- id: DE-009
+  body: DE
+  locality:
+    line_number:
+    clause: '10'
+    element: 2-10.16,3rd column
+  type: te
+  comments: The symbol “|a|” is defined for real numbers a.
+  proposed_change: Add “the real number” after “absolute value of”.
+  observations: Accepted.
+- id: DE-010
+  body: DE
+  locality:
+    line_number:
+    clause: '10'
+    element: 2-10.21,3rd column
+  type: te
+  comments: The symbol “min(a,b)” is defined for real numbers a and b.
+  proposed_change: Add “the real numbers” after “minimum of”.
+  observations: Accepted.
+- id: DE-011
+  body: DE
+  locality:
+    line_number:
+    clause: '10'
+    element: 2-10.22,3rd column
+  type: te
+  comments: The symbol “max(a,b)” is defined for real numbers a and b.
+  proposed_change: Add “the real numbers” after “maximum of”.
+  observations: Accepted.
+- id: DE-012
+  body: DE
+  locality:
+    line_number:
+    clause: '11'
+    element: 2-11.1,4th column
+  type: te
+  comments: Factorials are defined for natural numbers or 0.
+  proposed_change: Add “natural numbers” after “for”.
+  observations: Accepted.
+- id: DE-013
+  body: DE
+  locality:
+    line_number:
+    clause: '11'
+    element: 2-11.2,4th column
+  type: te
+  comments: Falling factorials are defined for natural numbers and for 0.
+  proposed_change: Add “natural numbers” after “for”.
+  observations: Accepted.
+- id: DE-014
+  body: DE
+  locality:
+    line_number:
+    clause: '11'
+    element: 2-11.3,4th column
+  type: te
+  comments: Rising factorials are defined for natural numbers and for 0.
+  proposed_change: Add “natural numbers” after “for”.
+  observations: Accepted.
+- id: DE-015
+  body: DE
+  locality:
+    line_number:
+    clause: '11'
+    element: 2-11.4,4th column
+  type: te
+  comments: Binomial coefficients are defined for natural numbers and for 0.
+  proposed_change: Add “natural numbers” after “for”.
+  observations: Accepted.
+- id: DE-016
+  body: DE
+  locality:
+    line_number:
+    clause: '11'
+    element: 2-11.5,4th column
+  type: te
+  comments: The Bernoulli numbers are defined for natural numbers and for 0.
+  proposed_change: Add “natural numbers” after “for”.
+  observations: Accepted.
+- id: DE-017
+  body: DE
+  locality:
+    line_number:
+    clause: '11'
+    element: 2-11.8,4th column
+  type: te
+  comments: The number of variations without repetitions is defined for natural numbers  0
+    ≤ k ≤ n .
+  proposed_change: Add “(for  0 ≤ k ≤ n )” after the formula.
+  observations: Accepted.
+- id: DE-018
+  body: DE
+  locality:
+    line_number:
+    clause: '11'
+    element: 2-11.9,4th column
+  type: te
+  comments: The number of variations without repetitions is defined for natural numbers
+    k and n.
+  proposed_change: Add “(for natural numbers k and n )” after the formula.
+  observations: Accepted.
+- id: DE-019
+  body: DE
+  locality:
+    line_number:
+    clause: '12'
+    element: 2-12.6,2nd column
+  type: te
+  comments: The word “surjectively” may be dropped.
+  proposed_change: Add “f maps A onto B” on a new line.
+  observations: Accepted.
+- id: DE-020
+  body: DE
+  locality:
+    line_number:
+    clause: '12'
+    element: 2-12.6,4th column
+  type: te
+  comments: The notion “surjective” should be introduced.
+  proposed_change: Add “The function f is then said to be surjective.”
+  observations: Accepted.
+- id: DE-021
+  body: DE
+  locality:
+    line_number:
+    clause: '12'
+    element: 2-12.8,4th column
+  type: te
+  comments: The notion “bijective” should be introduced.
+  proposed_change: Add “The function f is then said to be bijective.”
+  observations: Accepted.
+- id: DE-022
+  body: DE
+  locality:
+    line_number:
+    clause: '12'
+    element: 2-12.9,2nd column
+  type: te
+  comments: The expression should be surrounded by angle brackets to clarify that
+    this is a single expression, and a comma as separator. A link to the notion “prime
+    number” should be included.
+  proposed_change: Replace   by .
+  observations: Accepted. An example of a mapping to a prime number is now provided.
+- id: DE-023
+  body: DE
+  locality:
+    line_number:
+    clause: '13'
+    element: 2-13.1,4th column
+  type: te
+  comments: The Euler number is not periodic, but the given representation suggest
+    the false equality e = 2,7182818281828… .
+  proposed_change: Add the comment “The decimal digits of the Euler number have no
+    periodic repetitions because it is not a rational number.)”
+  observations: Accepted.
+- id: DE-024
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.4,4th column
+  type: te
+  comments: The tangent of  is not defined whenever  for .
+  proposed_change: Add:for .
+  observations: Accepted.
+- id: DE-025
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.5,4th column
+  type: te
+  comments: The cotangent of x is not defined whenever for
+  proposed_change: Add:.
+  observations: Accepted.
+- id: DE-026
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.6,4th column
+  type: te
+  comments: The secant of  is not defined whenever  for
+  proposed_change: Add:for .
+  observations: Accepted.
+- id: DE-027
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.7,4th column
+  type: te
+  comments: The cosecant of  is not defined whenever  for
+  proposed_change: Add:.
+  observations: Accepted.
+- id: DE-028
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.8,4th column
+  type: te
+  comments: The arcus sine of  is defined only if -1 ≤ x ≤ 1 .
+  proposed_change: Add “-1 ≤ x ≤ 1 and“ after “for”.
+  observations: Accepted.
+- id: DE-029
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.9,4th column
+  type: te
+  comments: The arcus cosine of x is defined only if -1 ≤ x ≤ 1 .
+  proposed_change: Add “-1 ≤ x ≤ 1 and“ after “for”.
+  observations: Accepted.
+- id: DE-030
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.10,4th column
+  type: te
+  comments: The values    or    are impossible for arcus tangent.
+  proposed_change: Replace  with
+  observations: Accepted.
+- id: DE-031
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.11,4th column
+  type: te
+  comments: The arguments    and   are not allowed for arcus cotangent.
+  proposed_change: Replace with
+  observations: Accepted.
+- id: DE-032
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.12,4th column
+  type: te
+  comments: The arcus secant of x is defined only if  x ≤ -1  or x ≥ 1 .
+  proposed_change: Add “x ≤ -1  or x ≥ 1 and” after “for.
+  observations: Accepted.
+- id: DE-033
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.13,4th column
+  type: te
+  comments: The arcus cosecant of x is defined only if  x ≤ -1  or x ≥ 1 .
+  proposed_change: Add “x ≤ -1  or x ≥ 1 and” after “for.
+  observations: Accepted.
+- id: DE-034
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.17,4th column
+  type: te
+  comments: The hyperbolic cotangent of x is defined only if  .
+  proposed_change: Add “(for )“.
+  observations: Accepted.
+- id: DE-035
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.19,4th column
+  type: te
+  comments: The hyperbolic cosecant of x is defined only if .
+  proposed_change: Add “(for )“.
+  observations: Accepted.
+- id: DE-036
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.21,4th column
+  type: te
+  comments: The area hyperbolic cosine of x is defined only if  x ≥ 1 .
+  proposed_change: Add “x ≥ 1 and“ after “for”.
+  observations: Accepted.
+- id: DE-037
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.22,4th column
+  type: te
+  comments: The area hyperbolic tangent of x is defined only if  -1 < x < 1 .
+  proposed_change: Add “(for -1 < x < 1 )”.
+  observations: Accepted.
+- id: DE-038
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.23,4th column
+  type: te
+  comments: The area hyperbolic cotangent of x is defined only if  x ≤ -1  or x ≥
+    1 .
+  proposed_change: Add “x ≤ -1  or x ≥ 1  and“ after “for”.
+  observations: Accepted.
+- id: DE-039
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.24,4th column
+  type: te
+  comments: The area hyperbolic secant of x is defined only if  0 < x ≤ 1 .
+  proposed_change: Add “0 < x ≤ 1  and“ after “for”.
+  observations: Accepted.
+- id: DE-040
+  body: DE
+  locality:
+    line_number:
+    clause: '14'
+    element: 2-14.25,4th column
+  type: te
+  comments: The area hyperbolic cosecant of x is defined only if  .
+  proposed_change: Add “ and“ after “for”.
+  observations: Accepted.
+- id: DE-041
+  body: DE
+  locality:
+    line_number:
+    clause: '16'
+    element: 2-16.1,4th column
+  type: te
+  comments: The notion “square matrix” should be defined which is used in 2-16.5.
+  proposed_change: Add “For a square matrix the number of rows equals the number of
+    columns.” or an equivalent definition.
+  observations: Accepted.
+- id: PL-042
+  body: PL
+  locality:
+    line_number:
+    clause: Bibliography
+    element:
+  type: ed
+  comments: 'Instead of ISO 80000-3:2006 "Quantities and units – Part 3: Space and
+    time" should be used as normative reference ISO 80000-3:2019 "Quantities and units
+    – Part 3: Space and time".'
+  proposed_change: ''
+  observations: Accepted.
+- id: CC-01-043
+  body: CC
+  locality:
+    line_number:
+    clause: Item 2-13.1
+    element:
+  type: ed
+  comments: The number “2,718 81 28” is not correctly formatted with the numeric grouping
+    practice of 3 digits as described in ISO DIR 2. It should have been “2,718 812
+    8”.
+  proposed_change: The correct numeric format is shown with demonstrable usage in
+    Clause 4 “e = 2,718 281 828”.
+  observations: Accepted. Number formatting issue.
+- id: CC-02-044
+  body: CC
+  locality:
+    line_number:
+    clause: Item 2-17.3
+    element:
+  type: ed
+  comments: Immediately after “sin”, there should be a thin space as per ISO 80000-2,
+    Clause 4 (“there shall be a thin space between the symbol for the function and
+    the argument”). The thin space is verified to be missing in the PDF content tree.
+  proposed_change: Add a thin space after the “sin” function.
+  observations: Accepted. Number formatting issue.
+- id: CC-03-045
+  body: CC
+  locality:
+    line_number:
+    clause: Item 2-20.7
+    element:
+  type: ed
+  comments: The “sin t” is missing the “thin space” immediately after “sin” (the function
+    name) as required by Clause 4. The thin space is verified to be missing in the
+    PDF content tree.
+  proposed_change: Add a thin space after the “sin” function.
+  observations: Accepted. Number formatting issue.
+- id: CC-04-046
+  body: CC
+  locality:
+    line_number:
+    clause: Item 2-6.4
+    element:
+  type: ed
+  comments: The last formula under Remarks has a full stop at the end of the formula.
+    This is confusing because it is unclear whether the full stop belongs to the formula,
+    as the formula is not an “inline formula”, but starts off a new line after the
+    colon (“:”).
+  proposed_change: This formula should either be placed inline, or the full stop moved
+    to the next line (or just removed).
+  observations: Accepted. The full stop is removed.
+- id: CC-05-047
+  body: CC
+  locality:
+    line_number:
+    clause: Clause 18
+    element:
+  type: ed
+  comments: In Clause 18, there are two instances where a bold comma is erroneously
+    used instead of a plain one.
+  proposed_change: Unbold the commas.
+  observations: Accepted.
+- id: CC-06-048
+  body: CC
+  locality:
+    line_number:
+    clause: Items2-8.42-10.172-10.182-10.12-10.202-12.17
+    element:
+  type: ed
+  comments: ISO DIR 2, 25.3 "Numbering and subdivision” states:"Within a given clause
+    or subclause, examples shall be numbered sequentially. The numbering restarts
+    at each new subdivision. A single example in a subdivision shall not be numbered.”In
+    ISO 80000-2, items 2-8.4, 2-10.17, 2-10.18, 2-10.1, 2-10.20, 2-12.17 all contain
+    an “EXAMPLES” text group that are not numbered sequentially within the item. This
+    seems to be a violation of DIR 2.
+  proposed_change: Split these examples in EXAMPLES into individual sequentially-numbered
+    EXAMPLE 1, EXAMPLE 2, etc.
+  observations: Accepted.
+- id: CC-07-049
+  body: CC
+  locality:
+    line_number:
+    clause: Item 2-20.21
+    element:
+  type: ed
+  comments: In item 2-20.21, the “narccosz” string is very hard to read due to the
+    lack of spacing. “n” here on first glance looks like part of the function name
+    “arccos”. In Clause 4, it says "Binary operators, for example +, −, /, shall be
+    preceded and followed by thin spaces”. However, for functions, it says “… there
+    shall be a thin space between the symbol for the function and the argument”, without
+    a thin space preceding the function.
+  proposed_change: Perhaps an additional guidance should be given that a thin space
+    needs to precede a function name. For example, if I have a constant called “a”,
+    which is rendered in straight type, and it is placed before “sin x” to indicate
+    multiplication of “a” with “sin x", it would look exactly like “asin x”; but “a
+    sin x” with a preceding space before the function name alleviates the issue.
+  observations:
+- id: CC-08-050
+  body: CC
+  locality:
+    line_number:
+    clause: Items2-20.262-20.27
+    element:
+  type: ed
+  comments: In 2-20.26 and 2-20.27, there is a conspicuous difference in the rendering
+    of “1/2”, there is a mix of slanted form (in 2-20.26), vertical form (first line
+    in remarks of 2-20.27), and horizontal form (also first line in remarks of 2-20.27).
+    This is very confusing to the reader. The document would benefit from using a
+    consistent fraction style throughout the document, and by also providing guidance
+    on when these 3 different fraction presentation styles can apply. The document
+    today contains an intermix of them, seemingly without particular reason.
+  proposed_change: The document should use a consistent fraction style throughout
+    the document, and also provide guidance on when these 3 different fraction presentation
+    styles apply.
+  observations: Accepted. The vertical form is used for both entries.
+- id: CC-09-051
+  body: CC
+  locality:
+    line_number:
+    clause: Clause 4
+    element:
+  type: ed
+  comments: The practice of “cos(x) + y” vs “cos x + y” is not typically a source
+    of confusion because of operator precedence. This is similar to the example of
+    "5 x + 6” where rarely anyone will consider “5 (x + 6)” being an option. A better
+    example would certainly help. Instead, the component highlighted below in 2-20.17
+    might work better as an example of confusion.
+  proposed_change: Replace the example of “cos x + y” with something that actually
+    looks ambiguous, like the “sin” expression in Item 2-20.17.
+  observations: Accepted. Replaced.
+- id: CC-10-052
+  body: CC
+  locality:
+    line_number:
+    clause: Whole document
+    element:
+  type: ge
+  comments: The ISO 80000 and IEC 80000 series should denote exact Unicode points
+    for all symbology used, especially for the math symbology used in ISO 80000-2.
+    In Unicode, there are many symbols in the math plane that can apply but provide
+    different semantics. It can be very confusing and frustrating when the user cannot
+    easily discover how to reproduce the notations given in the standard.Other standards
+    that utilize Unicode, such as those from ISO/TC 46/WG 3 (“Transliteration”) like
+    ISO 233 (Arabic transliteration), provide exact code points for every character
+    to avoid confusion.For example, in ISO 80000-2, it is clear that the character
+    of a matrix “bold italics A” (item 2-16.1) uses a different font from the natural
+    number set “bold sans-serif N” (item 2-7.1), but there is no described semantic
+    difference. In Unicode, the former character is part of the "Mathematical Bold
+    Italic Capital“ series (U+1D468) but the latter is part of the "Mathematical Sans-Serif
+    Bold Capital” series (U+1D5E1). If I use both symbols in a document, and change
+    the font to a sans-serif font, the “A” will be in the same presentation style
+    as the “N”, which is not what ISO 80000-2 intends.
+  proposed_change: The ISO 80000 and IEC 80000 series should denote exact Unicode
+    points for all symbology used, especially for the math symbology used in ISO 80000-2.
+  observations:
+- id: CC-11-053
+  body: CC
+  locality:
+    line_number:
+    clause: Whole document
+    element:
+  type: ge
+  comments: 'There are some symbols in ISO 80000-2 that are not encoded in Unicode
+    but in some graphics-like format:Item 2-7.1, the first double struck N:Item 2-7.3,
+    the first double struck Q:Item 2-7.4, the first double struck R:'
+  proposed_change: A warning should be placed on these symbols because they are not
+    available in Unicode and therefore typically inaccessible (and cannot be used)
+    on computing devices, and therefore should not be used.
+  observations:
+- id: CC-12-054
+  body: CC
+  locality:
+    line_number:
+    clause: Items2-12.262-12.272-20.52-20.6
+    element:
+  type: Ge
+  comments: In items 2-12.26, 2-12.27, 2-20.5, 2-20.6, the finite integral symbol
+    (the “⨍”) is incorrectly encoded. The “Finite Part Integral” symbol has code point
+    "U+2A0D” in Unicode. However, in ISO 80000-2, the finite integral symbol does
+    not use this correct character. This particular character in ISO 80000-2 is actually
+    re-created by composing two symbols overlapping each other by using “Character
+    spacing":When “Character spacing” is set to 0, this is what happens:Notice that
+    it is actually 2 symbols. The dash is actually "shifted" backwards to place on
+    top of the integral symbol. In some cases, the integral symbol is shifted backwards
+    instead to place it at the dash.This is not an intended use of Unicode characters
+    and should be avoided in ISO 80000-2, because:1. A reader who copies the finite
+    integral symbol is actually copying a sequence of 2 symbols, namely "∫-"2. The
+    reader who uses the correct Unicode finite integral symbol “⨍” will never be able
+    to match the presentation given in ISO 80000-2, because it was a custom, manually-created
+    symbol that is not reusable and interoperable.The relevant items that use this
+    symbol are provided below for reference.
+  proposed_change: Use the finite integral symbol as provided by Unicode.
+  observations: Accepted.
+- id: CC-13-055
+  body: CC
+  locality:
+    line_number:
+    clause: Items 20-20.720-20.9
+    element:
+  type: Te
+  comments: Items 20-20.7 and 20-20.9 contain remarks that define “complementary functions”.
+    First of all, remarks should not contain any definition for functions. Moreover,
+    items 2-14.8, 2-14.9 … define inverse functions as separate items. It would make
+    sense for the "complementary functions” in 20-20.7 and 20-20.9 to be also defined
+    as individual items.
+  proposed_change: Define the "complementary functions” in 20-20.7 and 20-20.9 as
+    individual items.
+  observations:
+- id: CC-14-056
+  body: CC
+  locality:
+    line_number:
+    clause: Clause 4 and document
+    element:
+  type: Ge
+  comments: Clause 4, paragraph 8, contains a permission that specifies the comma
+    as the preferred separator between numbers or expressions. However, notice that
+    in Clause 4, paragraph 6, it is already extremely confusing to see “… the function
+    and the argument, e.g. int 2,4; sin…”. In the case where a sentence already uses
+    the “comma” for sentence separation, not only that the embedded list of numbers
+    or expression shall not use the “comma” for list separation, but for the avoidance
+    of confusion, parentheses should not be omitted in functions if it contains a
+    "decimal comma”.For example, “… the function and the argument, e.g. int(2,4);
+    sin…” is much less confusing.It seems that the considerations around list separators
+    when using a “decimal comma” need to be better explained, specifically on how
+    the usage of the “decimal comma” affects the defined items in ISO 80000-2. In
+    ISO 80000-2, most of items use the “comma” to separate numbers/expressions.The
+    permission in Clause 4, paragraph 8 should further state that a consistent practice
+    should be applicable “context/document-wide” — the consideration is not only for
+    particular formulas inside a context/document, because it is important that a
+    reader can follow a consistent mathematical presentation practice throughout a
+    context/document. It could be simple as for a document to state its symbology
+    practice, if it uses the decimal comma for numbers, it will use the semicolon
+    for number separation.In Clause 4, paragraph 8, it says that a “semicolon” can
+    be used as an alternative separator. However, in ISO 80000-2, there are functions
+    that utilize the “semicolon” symbol for argument separation. Items 2-20.13 and
+    2-20.14 define specific meanings for what semicolons mean. This means that numbers
+    with decimal commas cannot utilize the “semicolon” symbol as a list separator
+    in these two items. Yet there are no alternatives provided in the document.Items
+    2-6.14 and 2-6.15 suggest that an additional alternative for separation two numbers
+    in an ordered pair/tuple can be the “stroke” symbol. This becomes “(a | b)” and
+    “(a1 | a2 | a3 | …)”.However, the “stroke” symbol is commonly used for stating
+    propositions (item 2-6.4), and when used consecutively it can be mistook for cardinality.e.g.
+    “(a1 | a2 | a3 )” can be interpreted as "(a1 card(a2) a3)” or “(a1, a2, a3)”.Or
+    we could follow the remarks in item 2-6.4 and reassign the “stroke” symbol for
+    propositions to only use the “colon”. However, the “colon” sign is also commonly
+    used for mapping (item 2-12.5 to 2-12.8).There is clearly more consideration that
+    needs to be fully thought through in the mathematical presentation practice stated
+    in ISO 80000-2 regarding the application of the decimal comma. ISO 80000-2 should
+    provide a consistent set of symbology for audiences using a decimal comma but
+    there are a number of gaps today in this area.
+  proposed_change: Reconsider fully the mathematical presentation practices stated
+    in ISO 80000-2 regarding the application of the decimal comma and provide refined,
+    accurate and actionable guidance.
+  observations:
