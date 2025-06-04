@@ -209,7 +209,7 @@ flowchart LR
     G --> H[ISO Secretariat]
 ----
 
-=== Shading Rules
+=== Shading rules
 
 When the `--shading` option is used, the following status patterns are
 recognized and applied to the observations column:
