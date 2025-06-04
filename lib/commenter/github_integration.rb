@@ -197,7 +197,7 @@ module Commenter
       labels.uniq
     end
 
-    def determine_assignees(comment, comment_sheet, options)
+    def determine_assignees(_comment, _comment_sheet, options)
       assignees = []
 
       # Check for override in options
@@ -212,7 +212,7 @@ module Commenter
       assignees.compact.uniq
     end
 
-    def determine_milestone(comment, comment_sheet, options)
+    def determine_milestone(_comment, comment_sheet, options)
       # Check for override in options
       return resolve_milestone_by_name_or_number(options[:milestone]) if options[:milestone]
 
@@ -374,7 +374,7 @@ module Commenter
       end
     end
 
-    def preview_observation_retrieval(comment, options)
+    def preview_observation_retrieval(comment, _options)
       issue_number = comment.github_issue_number
 
       begin
@@ -411,9 +411,7 @@ module Commenter
       end
 
       # Fallback to last comment if configured and no magic comment found
-      if @config.dig("github", "retrieval", "fallback_to_last_comment") && !comments.empty?
-        return comments.last.body.strip
-      end
+      return comments.last.body.strip if @config.dig("github", "retrieval", "fallback_to_last_comment") && !comments.empty?
 
       nil
     rescue Octokit::Error

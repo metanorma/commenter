@@ -15,7 +15,7 @@ module Commenter
       template_row = table.rows.first
 
       # Add new rows for each comment by copying the template row
-      comments.each_with_index do |comment, index|
+      comments.each_with_index do |comment, _index|
         # Convert comment to symbol keys for consistent access
         comment_data = symbolize_keys(comment)
 
@@ -125,8 +125,6 @@ module Commenter
         "FF99CC"  # Pink
       when /todo/
         "D9D9D9"  # Light Gray (for diagonal stripes, we'll use solid for now)
-      else
-        nil
       end
     end
 

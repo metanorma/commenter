@@ -36,9 +36,9 @@ module Commenter
           id: id,
           body: body,
           locality: {
-            line_number: cells[1]&.empty? ? nil : cells[1],
-            clause: cells[2]&.empty? ? nil : cells[2],
-            element: cells[3]&.empty? ? nil : cells[3]
+            line_number: cells[1] && cells[1].empty? ? nil : cells[1],
+            clause: cells[2] && cells[2].empty? ? nil : cells[2],
+            element: cells[3] && cells[3].empty? ? nil : cells[3]
           },
           type: cells[4] || "",
           comments: cells[5] || "",
@@ -47,7 +47,7 @@ module Commenter
 
         # Handle observations column
         unless options[:exclude_observations]
-          comment_attrs[:observations] = cells[7]&.empty? ? nil : cells[7]
+          comment_attrs[:observations] = cells[7] && cells[7].empty? ? nil : cells[7]
         end
 
         comments << Comment.new(comment_attrs)
@@ -71,9 +71,13 @@ module Commenter
       # Try to extract metadata from document properties first
       begin
         if doc.respond_to?(:created) && doc.created
-          metadata[:date] = doc.created.strftime("%Y-%m-%d") rescue nil
+          metadata[:date] = begin
+            doc.created.strftime("%Y-%m-%d")
+          rescue StandardError
+            nil
+          end
         end
-      rescue => e
+      rescue StandardError
         # Ignore errors accessing document properties
       end
 
