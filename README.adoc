@@ -696,7 +696,7 @@ $ OCTOKIT_DEBUG=true bundle exec exe/commenter github comments.yaml --config con
 == Copyright
 
 This gem is developed, maintained and funded by
-https://www.ribose.com[Ribose Inc.]
+https://www.ribose.com[Ribose]
 
 
 == License
