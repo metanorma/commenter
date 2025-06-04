@@ -1,0 +1,65 @@
+# GitHub configuration for commenter gem
+# Copy this file and customize for your project
+
+github:
+  # Repository in owner/repo format
+  repository: "owner/repo-name"
+
+  # GitHub token (recommended to use GITHUB_TOKEN environment variable instead)
+  # token: "ghp_xxxxxxxxxxxx"
+
+  # Milestone configuration
+  milestone:
+    # Use existing milestone by name
+    name: "ISO Comment Review"
+
+    # Alternative: Use existing milestone by number
+    # number: 5
+
+    # Create milestone if it doesn't exist (optional)
+    # create_if_missing: true
+    # description: "Review comments for ISO standard"
+    # due_date: "2024-12-31"
+
+  # Stage-specific milestones (optional)
+  stage_milestones:
+    WD: "Working Draft Review"
+    CD: "Committee Draft Review"
+    DIS: "DIS National Review"
+    FDIS: "Final DIS Review"
+    PRF: "Proof Review"
+    PUB: "Publication Review"
+
+  # Default labels for all issues
+  default_labels:
+    - "comment-review"
+    - "iso-standard"
+
+  # Stage-specific labels
+  stage_labels:
+    WD:
+      - "working-draft"
+      - "early-review"
+    CD:
+      - "committee-draft"
+      - "committee-review"
+    DIS:
+      - "draft-international-standard"
+      - "national-review"
+    FDIS:
+      - "final-draft"
+      - "final-review"
+    PRF:
+      - "proof-stage"
+      - "editorial"
+    PUB:
+      - "publication"
+      - "published"
+
+  # Default assignee (GitHub username)
+  default_assignee: "reviewer-handle"
+
+  # Custom template paths (optional)
+  templates:
+    title: "custom_title_template.liquid"
+    body: "custom_body_template.liquid"

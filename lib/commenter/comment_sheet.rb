@@ -4,7 +4,7 @@ require_relative "comment"
 
 module Commenter
   class CommentSheet
-    attr_accessor :version, :date, :document, :project, :comments
+    attr_accessor :version, :date, :document, :project, :stage, :comments
 
     def initialize(attributes = {})
       # Normalize input to symbols
@@ -14,6 +14,7 @@ module Commenter
       @date = attrs[:date]
       @document = attrs[:document]
       @project = attrs[:project]
+      @stage = attrs[:stage]
       @comments = (attrs[:comments] || []).map { |c| c.is_a?(Comment) ? c : Comment.from_hash(c) }
     end
 
@@ -27,6 +28,7 @@ module Commenter
         date: @date,
         document: @document,
         project: @project,
+        stage: @stage,
         comments: @comments.map(&:to_h)
       }
     end
@@ -57,13 +59,13 @@ module Commenter
       hash.each_with_object({}) do |(key, value), result|
         new_key = key.to_s
         new_value = case value
-                   when Hash
-                     stringify_keys(value)
-                   when Array
-                     value.map { |item| item.is_a?(Hash) ? stringify_keys(item) : item }
-                   else
-                     value
-                   end
+                    when Hash
+                      stringify_keys(value)
+                    when Array
+                      value.map { |item| item.is_a?(Hash) ? stringify_keys(item) : item }
+                    else
+                      value
+                    end
         result[new_key] = new_value
       end
     end

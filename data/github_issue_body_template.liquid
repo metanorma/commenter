@@ -1,0 +1,35 @@
+# {% if stage %}[{{ stage | upcase }}] {% endif %}{% if document %}{{ document }} - {% endif %}Comment {{ comment_id }}
+
+**Stage:** {{ stage | default: "Not specified" }}
+**Document:** {{ document | default: "Not specified" }}
+**Comment type:** {{ type }} ({{ type_full_name }})
+**Member body:** {{ body }}
+
+## Location
+
+{% if clause or element or line_number %}
+{% if clause %}* **Clause:** {{ clause }}{% endif %}
+{% if element %}* **Element:** {{ element }}{% endif %}
+{% if line_number %}* **Line number:** {{ line_number }}{% endif %}
+{% else %}
+* Location not specified
+{% endif %}
+
+## Comment
+
+{{ comments | default: "No comment provided" }}
+
+{% if has_proposed_change %}
+## Proposed change
+
+{{ proposed_change }}
+{% endif %}
+
+{% if has_observations %}
+## Observations
+
+{{ observations }}
+{% endif %}
+
+---
+*Generated from ISO comment sheet via commenter gem*

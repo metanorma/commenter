@@ -41,6 +41,39 @@ module Commenter
       @locality[:element] = value
     end
 
+    def brief_summary(max_length = 80)
+      parts = []
+
+      # Add locality information first
+      parts << "Clause #{clause}" if clause && !clause.strip.empty?
+      parts << element if element && !element.strip.empty?
+      parts << "Line #{line_number}" if line_number && !line_number.strip.empty?
+
+      locality_text = parts.join(", ")
+
+      # Add description from comment text
+      if @comments && !@comments.strip.empty?
+        # Extract first sentence or truncate
+        clean_text = @comments.strip.gsub(/\s+/, " ")
+        first_sentence = clean_text.split(/[.!?]/).first&.strip
+        description = if first_sentence && first_sentence.length < max_length
+                        first_sentence
+                      else
+                        clean_text[0...50]
+                      end
+
+        if locality_text.empty?
+          description
+        else
+          # Combine locality + description, respecting max_length
+          combined = "#{locality_text}: #{description}"
+          combined.length <= max_length ? combined : "#{locality_text}: #{description[0...(max_length - locality_text.length - 2)]}"
+        end
+      else
+        locality_text.empty? ? "No description" : locality_text
+      end
+    end
+
     def to_h
       {
         id: @id,

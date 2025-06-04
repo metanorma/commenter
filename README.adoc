@@ -161,13 +161,144 @@ Syntax:
 $ commenter fill comments.yaml -o filled_comments.docx
 ----
 
-==== Fill Options
+==== Fill options
 
 Options:
 
 `-o, --output FILE`:: Output DOCX file (default: filled_comments.docx)
 `-t, --template FILE`:: Custom template file
 `-s, --shading`:: Apply status-based cell shading
+
+=== Creating GitHub issues from comments
+
+==== General
+
+The `github` command creates GitHub issues from comments in a YAML file,
+enabling collaborative review and tracking of ISO comment resolution.
+
+==== Basic usage
+
+[source,shell]
+----
+$ commenter github comments.yaml --config github_config.yaml
+----
+
+==== Configuration file
+
+Create a GitHub configuration file to specify repository, authentication, and
+issue settings:
+
+[source,yaml]
+----
+github:
+  repository: "owner/repo-name"
+  token: "ghp_xxxxxxxxxxxx"
+  milestone:
+    name: "ISO 80000-2 DIS Review"
+  default_labels: ["comment-review", "iso-standard"]
+  stage_labels:
+    WD: ["working-draft"]
+    DIS: ["draft-international-standard"]
+----
+
+A sample configuration file is provided at `data/github_config_sample.yaml`.
+
+==== Issue templates
+
+===== General
+
+The gem uses Liquid templates to format GitHub issue titles and bodies. Default
+templates are provided, but you can customize them.
+
+===== Title template variables
+
+The title template (`data/github_issue_title_template.liquid`) supports these variables:
+
+* `stage` - Approval stage (WD/CD/DIS/FDIS/PRF/PUB)
+* `document` - Document identifier
+* `comment_id` - Comment identifier
+* `brief_summary` - Generated summary combining locality and description
+* `body` - Member body abbreviation
+* `type` - Comment type code
+* `clause`, `element`, `line_number` - Location information
+
+===== Body template variables
+
+The body template (`data/github_issue_body_template.liquid`) supports all title
+variables plus:
+
+* `comments` - Full comment text
+* `proposed_change` - Proposed change text
+* `observations` - Secretariat observations
+* `has_observations` - Boolean for conditional rendering
+* `has_proposed_change` - Boolean for conditional rendering
+* `project` - Project name
+* `date` - Comment sheet date
+* `version` - Template version
+* `type_full_name` - Full comment type name (General/Technical/Editorial)
+* `locality_summary` - Formatted locality string
+
+===== Custom templates
+
+[example]
+====
+Create custom templates and reference them in your configuration:
+
+[source,yaml]
+----
+github:
+  templates:
+    title: "custom_title.liquid"
+    body: "custom_body.liquid"
+----
+====
+
+==== Command options
+
+* `-c, --config FILE` - GitHub configuration YAML file (required)
+* `--stage STAGE` - Override approval stage
+* `--milestone NAME` - Override milestone name
+* `--assignee HANDLE` - Override assignee GitHub handle
+* `--title-template FILE` - Custom title template
+* `--body-template FILE` - Custom body template
+* `--dry-run` - Preview issues without creating them
+
+==== Examples
+
+[example]
+====
+Create issues with custom stage:
+
+[source,shell]
+----
+$ commenter github comments.yaml --config github_config.yaml --stage DIS
+----
+
+Preview issues before creation:
+
+[source,shell]
+----
+$ commenter github comments.yaml --config github_config.yaml --dry-run
+----
+====
+
+==== Security considerations
+
+For security reasons, it is recommended to use the `GITHUB_TOKEN` environment
+variable instead of storing the token in the configuration file.
+
+[source,shell]
+----
+$ export GITHUB_TOKEN=ghp_xxxxxxxxxxxx
+$ commenter github comments.yaml --config github_config.yaml
+----
+
+==== Duplicate detection
+
+The gem automatically checks for existing issues to avoid duplicates by
+searching for the comment ID in issue titles. If an issue already exists, it
+will be skipped.
+
 
 === Comment ID format
 
@@ -187,7 +318,7 @@ Where:
 * `CC` = CalConnect
 ====
 
-=== Comment Types
+=== Comment types
 
 The comment types are defined as follows:
 
@@ -266,6 +397,156 @@ This enables:
 * Inline documentation
 
 
+== Development
+
+=== Getting started
+
+After checking out the repo, run `bin/setup` to install dependencies:
+
+[source,shell]
+----
+$ git clone https://github.com/metanorma/commenter.git
+$ cd commenter
+$ bin/setup
+----
+
+Then, run `rake spec` to run the tests:
+
+[source,shell]
+----
+$ bundle exec rake spec
+----
+
+You can also run `bin/console` for an interactive prompt that will allow you to experiment:
+
+[source,shell]
+----
+$ bin/console
+----
+
+=== Running tests
+
+The gem includes comprehensive test coverage for all major components:
+
+[source,shell]
+----
+# Run all tests
+$ bundle exec rspec
+
+# Run specific test files
+$ bundle exec rspec spec/commenter/comment_spec.rb
+$ bundle exec rspec spec/commenter/comment_sheet_spec.rb
+$ bundle exec rspec spec/commenter/github_integration_spec.rb
+
+# Run tests with coverage
+$ bundle exec rspec --format documentation
+----
+
+=== Testing GitHub integration
+
+To test the GitHub integration features:
+
+1. Create a test repository on GitHub
+2. Generate a personal access token with appropriate permissions
+3. Create a test configuration file:
+
+[source,yaml]
+----
+github:
+  repository: "your-username/test-repo"
+  default_labels: ["test-comment"]
+  default_assignee: "your-username"
+----
+
+4. Test with dry-run mode first:
+
+[source,shell]
+----
+$ GITHUB_TOKEN=your_token bundle exec exe/commenter github test_comments.yaml --config test_config.yaml --dry-run
+----
+
+NOTE: For testing template rendering and dry-run functionality without a real GitHub token, you can use a dummy token:
+
+[source,shell]
+----
+$ GITHUB_TOKEN=dummy_token bundle exec exe/commenter github test_comments.yaml --config test_config.yaml --dry-run
+----
+
+This allows you to test the issue preview functionality, template rendering, and configuration parsing without making actual GitHub API calls.
+
+=== Code structure
+
+The gem is organized into several key components:
+
+==== Core classes
+
+`Commenter::Comment`:: Represents individual comments with locality, type, and content
+`Commenter::CommentSheet`:: Container for multiple comments with metadata
+`Commenter::Parser`:: Handles DOCX parsing and YAML generation
+`Commenter::Filler`:: Fills DOCX templates with comment data
+`Commenter::GitHubIssueCreator`:: Creates GitHub issues from comments
+
+==== CLI interface
+
+`Commenter::CLI`:: Thor-based command-line interface with subcommands:
+
+** `import` - Convert DOCX to YAML
+** `fill` - Fill DOCX template from YAML
+** `github` - Create GitHub issues from comments
+
+==== Templates and configuration
+
+* `data/iso_comment_template_2012-03.docx` - Base DOCX template
+* `data/github_issue_title_template.liquid` - GitHub issue title template
+* `data/github_issue_body_template.liquid` - GitHub issue body template
+* `data/github_config_sample.yaml` - Sample GitHub configuration
+* `schema/iso_comment_2012-03.yaml` - YAML schema for validation
+
+=== Debugging
+
+Enable debug output for troubleshooting:
+
+[source,shell]
+----
+# Enable verbose output
+$ bundle exec exe/commenter import input.docx --verbose
+
+# Debug GitHub API calls
+$ OCTOKIT_DEBUG=true bundle exec exe/commenter github comments.yaml --config config.yaml --dry-run
+----
+
+=== Troubleshooting
+
+==== Common issues
+
+**DOCX parsing errors**::
+** Ensure the DOCX file follows the ISO comment template format
+** Check for corrupted or password-protected files
+** Verify table structure matches expected format
+
+**GitHub API errors**::
+** Verify your GitHub token has appropriate permissions
+** Check rate limiting if making many requests
+** Ensure repository exists and is accessible
+
+**Template rendering errors**::
+** Validate Liquid template syntax
+** Check that all referenced variables are available
+** Test templates with sample data first
+
+**Schema validation errors**::
+** Ensure YAML follows the required structure
+** Check for missing required fields
+** Validate comment ID format
+
+==== Getting help
+
+* Check the issue tracker on GitHub
+* Review existing test cases for usage examples
+* Run commands with `--help` for detailed options
+* Use `--dry-run` mode to preview operations safely
+
+
 == Copyright
 
 This gem is developed, maintained and funded by
@@ -276,3 +557,4 @@ https://www.ribose.com[Ribose Inc.]
 
 The gem is available as open source under the terms of the
 https://opensource.org/licenses/BSD-2-Clause[2-Clause BSD License].
+

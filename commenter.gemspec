@@ -31,5 +31,8 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "docx", "~> 0.8"
+  spec.add_dependency "dotenv", "~> 2.8"
+  spec.add_dependency "liquid", "~> 5.0"
+  spec.add_dependency "octokit", "~> 6.0"
   spec.add_dependency "thor", "~> 1.0"
 end

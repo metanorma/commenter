@@ -9,6 +9,20 @@ properties:
     type: string
     const: "2012-03"
     description: Version of the ISO commenting template
+  date:
+    type: ["string", "null"]
+    description: Date of the comment sheet
+    format: date
+  document:
+    type: ["string", "null"]
+    description: Document identifier being reviewed
+  project:
+    type: ["string", "null"]
+    description: Project name
+  stage:
+    type: ["string", "null"]
+    description: Approval stage (WD/CD/DIS/FDIS/PRF/PUB)
+    enum: [null, "WD", "CD", "DIS", "FDIS", "PRF", "PUB"]
   comments:
     type: array
     description: Array of comment entries from the ISO comment sheet

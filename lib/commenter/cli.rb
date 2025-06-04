@@ -5,6 +5,7 @@ require "yaml"
 require "fileutils"
 require "commenter/parser"
 require "commenter/filler"
+require "commenter/github_integration"
 
 module Commenter
   class CLI < Thor
@@ -65,6 +66,75 @@ module Commenter
       # Fill the template
       Filler.new.fill(template_path, output_docx, comments, options)
       puts "Filled template to #{output_docx}"
+    end
+
+    desc "github INPUT.yaml", "Create GitHub issues from comments"
+    option :config, type: :string, aliases: :c, required: true, desc: "GitHub configuration YAML file"
+    option :stage, type: :string, desc: "Override approval stage (WD/CD/DIS/FDIS/PRF/PUB)"
+    option :milestone, type: :string, desc: "Override milestone name or number"
+    option :assignee, type: :string, desc: "Override assignee GitHub handle"
+    option :title_template, type: :string, desc: "Custom title template file"
+    option :body_template, type: :string, desc: "Custom body template file"
+    option :dry_run, type: :boolean, desc: "Preview issues without creating them"
+    def github(input_yaml)
+      creator = GitHubIssueCreator.new(
+        options[:config],
+        options[:title_template],
+        options[:body_template]
+      )
+
+      github_options = {
+        stage: options[:stage],
+        milestone: options[:milestone],
+        assignee: options[:assignee],
+        dry_run: options[:dry_run]
+      }.compact
+
+      results = creator.create_issues_from_yaml(input_yaml, github_options)
+
+      if options[:dry_run]
+        puts "DRY RUN - Preview of issues to be created:"
+        puts "=" * 50
+        results.each do |result|
+          puts "\nComment ID: #{result[:comment_id]}"
+          puts "Title: #{result[:title]}"
+          puts "Labels: #{result[:labels].join(", ")}" if result[:labels]&.any?
+          puts "Assignees: #{result[:assignees].join(", ")}" if result[:assignees]&.any?
+          puts "Milestone: #{result[:milestone]}" if result[:milestone]
+          puts "\nBody preview (first 200 chars):"
+          puts result[:body][0...200] + (result[:body].length > 200 ? "..." : "")
+          puts "-" * 30
+        end
+      else
+        puts "GitHub issue creation results:"
+        puts "=" * 40
+
+        created_count = 0
+        skipped_count = 0
+        error_count = 0
+
+        results.each do |result|
+          case result[:status]
+          when :created
+            created_count += 1
+            puts "✓ #{result[:comment_id]}: Created issue ##{result[:issue_number]}"
+            puts "  URL: #{result[:issue_url]}"
+          when :skipped
+            skipped_count += 1
+            puts "- #{result[:comment_id]}: Skipped (#{result[:message]})"
+            puts "  URL: #{result[:issue_url]}" if result[:issue_url]
+          when :error
+            error_count += 1
+            puts "✗ #{result[:comment_id]}: Error - #{result[:message]}"
+          end
+        end
+
+        puts "\nSummary:"
+        puts "Created: #{created_count}, Skipped: #{skipped_count}, Errors: #{error_count}"
+      end
+    rescue StandardError => e
+      puts "Error: #{e.message}"
+      exit 1
     end
 
     def self.exit_on_failure?
