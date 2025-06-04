@@ -8,7 +8,7 @@ require "commenter/filler"
 require "commenter/github_integration"
 
 module Commenter
-  class CLI < Thor
+  class Cli < Thor
     desc "import INPUT.docx", "Convert DOCX comment sheet to YAML"
     option :output, type: :string, aliases: :o, default: "comments.yaml", desc: "Output YAML file"
     option :exclude_observations, type: :boolean, aliases: :e, desc: "Exclude observations column"
@@ -68,15 +68,16 @@ module Commenter
       puts "Filled template to #{output_docx}"
     end
 
-    desc "github INPUT.yaml", "Create GitHub issues from comments"
+    desc "github-create INPUT.yaml", "Create GitHub issues from comments"
     option :config, type: :string, aliases: :c, required: true, desc: "GitHub configuration YAML file"
+    option :output, type: :string, aliases: :o, desc: "Output YAML file (default: update original)"
     option :stage, type: :string, desc: "Override approval stage (WD/CD/DIS/FDIS/PRF/PUB)"
     option :milestone, type: :string, desc: "Override milestone name or number"
     option :assignee, type: :string, desc: "Override assignee GitHub handle"
     option :title_template, type: :string, desc: "Custom title template file"
     option :body_template, type: :string, desc: "Custom body template file"
     option :dry_run, type: :boolean, desc: "Preview issues without creating them"
-    def github(input_yaml)
+    def github_create(input_yaml)
       creator = GitHubIssueCreator.new(
         options[:config],
         options[:title_template],
@@ -87,7 +88,8 @@ module Commenter
         stage: options[:stage],
         milestone: options[:milestone],
         assignee: options[:assignee],
-        dry_run: options[:dry_run]
+        dry_run: options[:dry_run],
+        output: options[:output]
       }.compact
 
       results = creator.create_issues_from_yaml(input_yaml, github_options)
@@ -131,6 +133,69 @@ module Commenter
 
         puts "\nSummary:"
         puts "Created: #{created_count}, Skipped: #{skipped_count}, Errors: #{error_count}"
+      end
+    rescue StandardError => e
+      puts "Error: #{e.message}"
+      exit 1
+    end
+
+    desc "github-retrieve INPUT.yaml", "Retrieve observations from GitHub issues"
+    option :config, type: :string, aliases: :c, required: true, desc: "GitHub configuration YAML file"
+    option :output, type: :string, aliases: :o, desc: "Output YAML file (default: update original)"
+    option :include_open, type: :boolean, desc: "Include observations from open issues"
+    option :dry_run, type: :boolean, desc: "Preview observations without updating"
+    def github_retrieve(input_yaml)
+      retriever = GitHubIssueRetriever.new(options[:config])
+
+      retrieve_options = {
+        output: options[:output],
+        include_open: options[:include_open],
+        dry_run: options[:dry_run]
+      }.compact
+
+      results = retriever.retrieve_observations_from_yaml(input_yaml, retrieve_options)
+
+      if options[:dry_run]
+        puts "DRY RUN - Preview of observations to be retrieved:"
+        puts "=" * 50
+        results.each do |result|
+          puts "\nComment ID: #{result[:comment_id]}"
+          puts "Issue ##{result[:issue_number]}: #{result[:status]}"
+          if result[:observation]
+            puts "Observation preview (first 200 chars):"
+            puts result[:observation][0...200] + (result[:observation].length > 200 ? "..." : "")
+          else
+            puts "No observation found"
+          end
+          puts "-" * 30
+        end
+      else
+        puts "GitHub observation retrieval results:"
+        puts "=" * 40
+
+        retrieved_count = 0
+        skipped_count = 0
+        error_count = 0
+
+        results.each do |result|
+          case result[:status]
+          when :retrieved
+            retrieved_count += 1
+            puts "✓ #{result[:comment_id]}: Retrieved observation from issue ##{result[:issue_number]}"
+          when :skipped
+            skipped_count += 1
+            puts "- #{result[:comment_id]}: Skipped (#{result[:message]})"
+          when :error
+            error_count += 1
+            puts "✗ #{result[:comment_id]}: Error - #{result[:message]}"
+          end
+        end
+
+        puts "\nSummary:"
+        puts "Retrieved: #{retrieved_count}, Skipped: #{skipped_count}, Errors: #{error_count}"
+
+        output_file = options[:output] || input_yaml
+        puts "Updated YAML file: #{output_file}"
       end
     rescue StandardError => e
       puts "Error: #{e.message}"

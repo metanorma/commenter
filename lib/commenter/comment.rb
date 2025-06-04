@@ -2,7 +2,7 @@
 
 module Commenter
   class Comment
-    attr_accessor :id, :body, :locality, :type, :comments, :proposed_change, :observations
+    attr_accessor :id, :body, :locality, :type, :comments, :proposed_change, :observations, :github
 
     def initialize(attributes = {})
       # Normalize input to symbols
@@ -15,6 +15,7 @@ module Commenter
       @comments = attrs[:comments]
       @proposed_change = attrs[:proposed_change]
       @observations = attrs[:observations]
+      @github = symbolize_keys(attrs[:github] || {})
     end
 
     def line_number
@@ -74,6 +75,30 @@ module Commenter
       end
     end
 
+    def github_issue_number
+      @github[:issue_number]
+    end
+
+    def github_issue_url
+      @github[:issue_url]
+    end
+
+    def github_status
+      @github[:status]
+    end
+
+    def github_created_at
+      @github[:created_at]
+    end
+
+    def github_updated_at
+      @github[:updated_at]
+    end
+
+    def has_github_issue?
+      !@github[:issue_number].nil?
+    end
+
     def to_h
       {
         id: @id,
@@ -82,8 +107,9 @@ module Commenter
         type: @type,
         comments: @comments,
         proposed_change: @proposed_change,
-        observations: @observations
-      }
+        observations: @observations,
+        github: @github.empty? ? nil : @github
+      }.compact
     end
 
     def to_yaml_h

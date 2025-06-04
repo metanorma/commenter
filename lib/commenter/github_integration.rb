@@ -34,6 +34,9 @@ module Commenter
                    end
       end
 
+      # Update YAML with GitHub info after creation (unless dry run)
+      update_yaml_with_github_info(yaml_file, comment_sheet, results, options) unless options[:dry_run]
+
       results
     end
 
@@ -247,6 +250,205 @@ module Commenter
       milestone&.number
     rescue Octokit::Error
       nil
+    end
+
+    def update_yaml_with_github_info(yaml_file, comment_sheet, results, options)
+      # Update comments with GitHub information
+      results.each do |result|
+        next unless result[:status] == :created
+
+        comment = comment_sheet.comments.find { |c| c.id == result[:comment_id] }
+        next unless comment
+
+        # Add GitHub information to the comment
+        comment.github[:issue_number] = result[:issue_number]
+        comment.github[:issue_url] = result[:issue_url]
+        comment.github[:status] = "open"
+        comment.github[:created_at] = Time.now.utc.iso8601
+      end
+
+      # Write updated YAML
+      output_file = options[:output] || yaml_file
+      yaml_content = generate_yaml_with_header(comment_sheet.to_yaml_h)
+      File.write(output_file, yaml_content)
+    end
+
+    def generate_yaml_with_header(data)
+      header = "# yaml-language-server: $schema=schema/iso_comment_2012-03.yaml\n\n"
+      header + data.to_yaml
+    end
+  end
+
+  class GitHubIssueRetriever
+    def initialize(config_path)
+      @config = load_config(config_path)
+      @github_client = create_github_client
+      @repo = @config.dig("github", "repository")
+
+      raise "GitHub repository not specified in config" unless @repo
+    end
+
+    def retrieve_observations_from_yaml(yaml_file, options = {})
+      data = YAML.load_file(yaml_file)
+      comment_sheet = CommentSheet.from_hash(data)
+
+      results = []
+      comment_sheet.comments.each do |comment|
+        next unless comment.has_github_issue?
+
+        result = if options[:dry_run]
+                   preview_observation_retrieval(comment, options)
+                 else
+                   retrieve_observation(comment, options)
+                 end
+        results << result
+      end
+
+      # Update YAML with observations (unless dry run)
+      update_yaml_with_observations(yaml_file, comment_sheet, options) unless options[:dry_run]
+
+      results
+    end
+
+    private
+
+    def load_config(config_path)
+      YAML.load_file(config_path)
+    rescue Errno::ENOENT
+      raise "Configuration file not found: #{config_path}"
+    end
+
+    def create_github_client
+      token = @config.dig("github", "token") || ENV["GITHUB_TOKEN"]
+      raise "GitHub token not found. Set GITHUB_TOKEN environment variable or specify in config file." unless token
+
+      Octokit::Client.new(access_token: token)
+    end
+
+    def retrieve_observation(comment, options)
+      issue_number = comment.github_issue_number
+
+      begin
+        issue = @github_client.issue(@repo, issue_number)
+
+        # Skip open issues unless explicitly included
+        if issue.state == "open" && !options[:include_open]
+          return {
+            comment_id: comment.id,
+            issue_number: issue_number,
+            status: :skipped,
+            message: "Issue is still open"
+          }
+        end
+
+        # Extract observation from issue comments
+        observation = extract_observation_from_issue(issue_number)
+
+        if observation
+          # Update comment with observation and current status
+          comment.observations = observation
+          comment.github[:status] = issue.state
+          comment.github[:updated_at] = Time.now.utc.iso8601
+
+          {
+            comment_id: comment.id,
+            issue_number: issue_number,
+            status: :retrieved,
+            observation: observation
+          }
+        else
+          {
+            comment_id: comment.id,
+            issue_number: issue_number,
+            status: :skipped,
+            message: "No observation found in issue"
+          }
+        end
+      rescue Octokit::Error => e
+        {
+          comment_id: comment.id,
+          issue_number: issue_number,
+          status: :error,
+          message: e.message
+        }
+      end
+    end
+
+    def preview_observation_retrieval(comment, options)
+      issue_number = comment.github_issue_number
+
+      begin
+        issue = @github_client.issue(@repo, issue_number)
+        observation = extract_observation_from_issue(issue_number)
+
+        {
+          comment_id: comment.id,
+          issue_number: issue_number,
+          status: issue.state,
+          observation: observation
+        }
+      rescue Octokit::Error => e
+        {
+          comment_id: comment.id,
+          issue_number: issue_number,
+          status: :error,
+          message: e.message
+        }
+      end
+    end
+
+    def extract_observation_from_issue(issue_number)
+      comments = @github_client.issue_comments(@repo, issue_number)
+
+      # Look for magic comments with observation markers
+      observation_markers = @config.dig("github", "retrieval", "observation_markers") ||
+                            ["**OBSERVATION:**", "**COMMENTER OBSERVATION:**"]
+
+      # Search comments in reverse order (newest first)
+      comments.reverse_each do |comment|
+        observation = parse_observation_from_comment(comment.body, observation_markers)
+        return observation if observation
+      end
+
+      # Fallback to last comment if configured and no magic comment found
+      if @config.dig("github", "retrieval", "fallback_to_last_comment") && !comments.empty?
+        return comments.last.body.strip
+      end
+
+      nil
+    rescue Octokit::Error
+      nil
+    end
+
+    def parse_observation_from_comment(comment_body, markers)
+      markers.each do |marker|
+        # Look for markdown blockquote with the marker
+        pattern = /^>\s*#{Regexp.escape(marker)}\s*\n((?:^>.*\n?)*)/m
+        match = comment_body.match(pattern)
+
+        next unless match
+
+        # Extract the blockquote content and clean it up
+        observation = match[1]
+                      .split("\n")
+                      .map { |line| line.sub(/^>\s?/, "") }
+                      .join("\n")
+                      .strip
+        return observation unless observation.empty?
+      end
+
+      nil
+    end
+
+    def update_yaml_with_observations(yaml_file, comment_sheet, options)
+      output_file = options[:output] || yaml_file
+      yaml_content = generate_yaml_with_header(comment_sheet.to_yaml_h)
+      File.write(output_file, yaml_content)
+    end
+
+    def generate_yaml_with_header(data)
+      header = "# yaml-language-server: $schema=schema/iso_comment_2012-03.yaml\n\n"
+      header + data.to_yaml
     end
   end
 end

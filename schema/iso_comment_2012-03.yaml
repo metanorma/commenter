@@ -79,5 +79,29 @@ properties:
         observations:
           type: ["string", "null"]
           description: "Observations of the Secretariat (optional)"
+        github:
+          type: ["object", "null"]
+          description: "GitHub integration information"
+          properties:
+            issue_number:
+              type: integer
+              description: "GitHub issue number"
+            issue_url:
+              type: string
+              format: uri
+              description: "GitHub issue URL"
+            status:
+              type: string
+              enum: ["open", "closed"]
+              description: "GitHub issue status"
+            created_at:
+              type: string
+              format: date-time
+              description: "Issue creation timestamp"
+            updated_at:
+              type: string
+              format: date-time
+              description: "Issue last update timestamp"
+          required: ["issue_number", "issue_url", "status"]
       required: ["id", "body", "locality", "type", "comments", "proposed_change"]
 required: ["version", "comments"]

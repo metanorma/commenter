@@ -169,19 +169,25 @@ Options:
 `-t, --template FILE`:: Custom template file
 `-s, --shading`:: Apply status-based cell shading
 
-=== Creating GitHub issues from comments
+=== GitHub Integration
 
-==== General
+==== Overview
 
-The `github` command creates GitHub issues from comments in a YAML file,
-enabling collaborative review and tracking of ISO comment resolution.
+The commenter gem provides comprehensive GitHub integration for collaborative comment review and tracking. The workflow consists of two main commands:
 
-==== Basic usage
+* `github-create` - Creates GitHub issues from comments and tracks them in YAML
+* `github-retrieve` - Retrieves final observations from closed GitHub issues
+
+==== Creating GitHub issues from comments
+
+===== Basic usage
 
 [source,shell]
 ----
-$ commenter github comments.yaml --config github_config.yaml
+$ commenter github-create --config github_config.yaml comments.yaml
 ----
+
+This command creates GitHub issues for each comment and automatically updates the YAML file with GitHub issue information (issue numbers, URLs, status, timestamps).
 
 ==== Configuration file
 
@@ -271,14 +277,14 @@ Create issues with custom stage:
 
 [source,shell]
 ----
-$ commenter github comments.yaml --config github_config.yaml --stage DIS
+$ commenter github-create --config github_config.yaml --stage DIS comments.yaml
 ----
 
 Preview issues before creation:
 
 [source,shell]
 ----
-$ commenter github comments.yaml --config github_config.yaml --dry-run
+$ commenter github-create --config github_config.yaml --dry-run comments.yaml
 ----
 ====
 
@@ -298,6 +304,136 @@ $ commenter github comments.yaml --config github_config.yaml
 The gem automatically checks for existing issues to avoid duplicates by
 searching for the comment ID in issue titles. If an issue already exists, it
 will be skipped.
+
+==== Retrieving observations from GitHub issues
+
+===== Basic usage
+
+After GitHub issues have been created and reviewed, use the `github-retrieve` command to extract final observations from closed issues:
+
+[source,shell]
+----
+$ commenter github-retrieve --config github_config.yaml comments.yaml
+----
+
+This command:
+
+* Reads GitHub issue information from the YAML file (no searching required)
+* Fetches observations from closed GitHub issues only
+* Updates the same YAML file with extracted observations
+* Preserves all existing comment data
+
+===== Magic comment syntax
+
+To provide official observations in GitHub issues, use markdown blockquotes with special markers:
+
+[source,markdown]
+----
+> **OBSERVATION:**
+> Accepted. The proposed change will be included in clause 5.2.1 of the next revision.
+> Technical details have been reviewed and approved by the working group.
+----
+
+Alternative shorter syntax:
+
+[source,markdown]
+----
+> **COMMENTER OBSERVATION:**
+> Noted. This will be considered for future revisions.
+----
+
+===== Retrieval options
+
+* `-c, --config FILE` - GitHub configuration YAML file (required)
+* `-o, --output FILE` - Output YAML file (default: update original)
+* `--include-open` - Include observations from open issues (not recommended)
+* `--dry-run` - Preview observations without updating YAML
+
+===== Examples
+
+[example]
+====
+Preview observations before updating:
+
+[source,shell]
+----
+$ commenter github-retrieve --config github_config.yaml --dry-run comments.yaml
+----
+
+Save to new file instead of updating original:
+
+[source,shell]
+----
+$ commenter github-retrieve --config github_config.yaml -o final_comments.yaml comments.yaml
+----
+
+Include observations from open issues:
+
+[source,shell]
+----
+$ commenter github-retrieve --config github_config.yaml --include-open comments.yaml
+----
+====
+
+===== Enhanced YAML structure
+
+After using `github-create`, your YAML file will include GitHub integration information:
+
+[source,yaml]
+----
+comments:
+  - id: US-001
+    body: US
+    locality:
+      clause: "5.2.1"
+      element: "Table 3"
+    type: te
+    comments: "The values in Table 3 appear inconsistent..."
+    proposed_change: "Correct the values in column 2..."
+    observations: ""
+    github:
+      issue_number: 123
+      issue_url: "https://github.com/owner/repo/issues/123"
+      status: "open"
+      created_at: "2024-01-15T10:30:00Z"
+----
+
+After using `github-retrieve` (when the issue is closed):
+
+[source,yaml]
+----
+comments:
+  - id: US-001
+    # ... other fields unchanged ...
+    observations: "Accepted. The proposed change will be included in clause 5.2.1."
+    github:
+      issue_number: 123
+      issue_url: "https://github.com/owner/repo/issues/123"
+      status: "closed"
+      created_at: "2024-01-15T10:30:00Z"
+      updated_at: "2024-01-20T14:45:00Z"
+----
+
+===== Configuration for retrieval
+
+The GitHub configuration file supports retrieval-specific settings:
+
+[source,yaml]
+----
+github:
+  repository: "owner/repo-name"
+  retrieval:
+    # Magic comment markers to look for
+    observation_markers:
+      - "**OBSERVATION:**"
+      - "**COMMENTER OBSERVATION:**"
+
+    # Fallback to last comment if no magic comment found
+    fallback_to_last_comment: true
+
+    # Only retrieve from closed issues (recommended)
+    closed_issues_only: true
+----
 
 
 === Comment ID format
@@ -333,11 +469,14 @@ The comment types are defined as follows:
 flowchart LR
     A[ISO Comment Sheet DOCX] --> B[commenter import]
     B --> C[YAML + Schema]
-    C --> D[Version Control, e.g. post to GitHub issues]
-    D --> E[Review Process]
-    E --> F[commenter fill, e.g. pull from resolved GitHub issues]
-    F --> G[Updated DOCX]
-    G --> H[ISO Secretariat]
+    C --> D[commenter github-create]
+    D --> E[YAML + GitHub Info]
+    E --> F[GitHub Issues + Review Process]
+    F --> G[commenter github-retrieve]
+    G --> H[YAML + Observations]
+    H --> I[commenter fill]
+    I --> J[Final DOCX]
+    J --> K[ISO Secretariat]
 ----
 
 === Shading rules
@@ -378,6 +517,12 @@ comments:           # Array of comment objects
     comments: string          # Comment text
     proposed_change: string   # Proposed solution
     observations: string | null  # Secretariat observations (optional)
+    github:         # GitHub integration information (optional)
+      issue_number: integer   # GitHub issue number
+      issue_url: string       # GitHub issue URL
+      status: "open" | "closed"  # GitHub issue status
+      created_at: string      # ISO 8601 timestamp
+      updated_at: string      # ISO 8601 timestamp (optional)
 ----
 
 
@@ -488,11 +633,12 @@ The gem is organized into several key components:
 
 ==== CLI interface
 
-`Commenter::CLI`:: Thor-based command-line interface with subcommands:
+`Commenter::Cli`:: Thor-based command-line interface with subcommands:
 
 ** `import` - Convert DOCX to YAML
 ** `fill` - Fill DOCX template from YAML
-** `github` - Create GitHub issues from comments
+** `github-create` - Create GitHub issues from comments
+** `github-retrieve` - Retrieve observations from GitHub issues
 
 ==== Templates and configuration
 
@@ -557,4 +703,3 @@ https://www.ribose.com[Ribose Inc.]
 
 The gem is available as open source under the terms of the
 https://opensource.org/licenses/BSD-2-Clause[2-Clause BSD License].
-

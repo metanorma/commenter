@@ -63,3 +63,16 @@ github:
   templates:
     title: "custom_title_template.liquid"
     body: "custom_body_template.liquid"
+
+  # Retrieval configuration for github-retrieve command
+  retrieval:
+    # Magic comment markers to look for in GitHub issue comments
+    observation_markers:
+      - "**OBSERVATION:**"
+      - "**COMMENTER OBSERVATION:**"
+
+    # Fallback to last comment if no magic comment found
+    fallback_to_last_comment: true
+
+    # Only retrieve from closed issues (recommended)
+    closed_issues_only: true

@@ -4,4 +4,4 @@
 require "thor"
 require "commenter/cli"
 
-Commenter::CLI.start(ARGV)
+Commenter::Cli.start(ARGV)
