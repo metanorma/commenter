@@ -11,11 +11,20 @@ module Commenter
       @id = attrs[:id]
       @body = attrs[:body]
       @locality = symbolize_keys(attrs[:locality] || {})
-      @type = attrs[:type]
+      @type = expand_comment_type(attrs[:type])
       @comments = attrs[:comments]
       @proposed_change = attrs[:proposed_change]
       @observations = attrs[:observations]
       @github = symbolize_keys(attrs[:github] || {})
+    end
+
+    def expand_comment_type(type)
+      case type&.downcase
+      when "ge" then "general"
+      when "te" then "technical"
+      when "ed" then "editorial"
+      else type
+      end
     end
 
     def line_number
