@@ -213,17 +213,14 @@ module Commenter
     end
 
     def determine_milestone(_comment, comment_sheet, options)
-      # Check for override in options
-      return resolve_milestone_by_name_or_number(options[:milestone]) if options[:milestone]
-
-      # Check for stage-specific milestone
-      if comment_sheet.stage
-        stage_milestone = @config.dig("github", "stage_milestones", comment_sheet.stage)
-        if stage_milestone
-          milestone_number = resolve_milestone_by_name_or_number(stage_milestone)
-          return milestone_number if milestone_number
-        end
-      end
+      # # Check for stage-specific milestone
+      # if comment_sheet.stage
+      #   stage_milestone = @config.dig("github", "stage_milestones", comment_sheet.stage)
+      #   if stage_milestone
+      #     milestone_number = resolve_milestone_by_name_or_number(stage_milestone)
+      #     return milestone_number if milestone_number
+      #   end
+      # end
 
       # Use configured milestone
       milestone_config = @config.dig("github", "milestone")
