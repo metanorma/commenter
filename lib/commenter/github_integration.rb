@@ -119,9 +119,11 @@ module Commenter
     end
 
     def create_issue(comment, comment_sheet, options = {})
+      puts "[GitHubIssueCreator] Creating issue for comment ID: #{comment.id}"
       # Check if issue already exists
       existing_issue = find_existing_issue(comment)
       if existing_issue
+        puts "[GitHubIssueCreator] Issue already exists for comment ID: #{comment.id}, skipping creation."
         return {
           comment_id: comment.id,
           status: :skipped,
@@ -139,8 +141,10 @@ module Commenter
         milestone: determine_milestone(comment, comment_sheet, options)
       }.compact
 
+      puts "[GitHubIssueCreator] Creating issue with title: #{title}"
       begin
         issue = @github_client.create_issue(@repo, title, body, issue_options)
+        puts "[GitHubIssueCreator] Issue created successfully: #{issue.html_url}"
         {
           comment_id: comment.id,
           status: :created,
@@ -148,6 +152,7 @@ module Commenter
           issue_url: issue.html_url
         }
       rescue Octokit::Error => e
+        puts "[GitHubIssueCreator] Error creating issue for comment ID: #{comment.id} - #{e.message}"
         {
           comment_id: comment.id,
           status: :error,
@@ -157,6 +162,8 @@ module Commenter
     end
 
     def preview_issue(comment, comment_sheet)
+      puts "[GitHubIssueCreator] Previewing issue for comment ID: #{comment.id}"
+
       title = @title_template.render(template_variables(comment, comment_sheet))
       body = @body_template.render(template_variables(comment, comment_sheet))
 
@@ -171,6 +178,8 @@ module Commenter
     end
 
     def find_existing_issue(comment)
+      puts "[GitHubIssueCreator] Searching for existing issue for comment ID: #{comment.id}"
+
       # Search for existing issues with the comment ID in the title
       query = "repo:#{@repo} in:title #{comment.id}"
       results = @github_client.search_issues(query)
@@ -227,8 +236,10 @@ module Commenter
       return nil unless milestone_config
 
       if milestone_config["number"]
+        puts "[GitHubIssueCreator] Using milestone number: #{milestone_config["number"]}"
         milestone_config["number"]
       elsif milestone_config["name"]
+        puts "[GitHubIssueCreator] Using milestone name: #{milestone_config["name"]}"
         resolve_milestone_by_name_or_number(milestone_config["name"])
       end
     end
@@ -243,6 +254,8 @@ module Commenter
 
     def find_milestone_by_name(name)
       milestones = @github_client.milestones(@repo, state: "all")
+
+      puts "[GitHubIssueCreator] Found #{milestones.size} milestones in repository #{@repo}" if milestones.any?
       milestone = milestones.find { |m| m.title == name }
       milestone&.number
     rescue Octokit::Error
