@@ -1,1 +1,1 @@
-{% if stage %}[{{ stage | upcase }}] {% endif %}{% if document %}{{ document }} - {% endif %}{{ comment_id }}: {{ brief_summary }}
+{% if stage %}[{{ stage | upcase }}] {% endif %}{{ comment_id }}: {{ brief_summary }} {% if document %}({{ document }}){% endif %}

@@ -1,4 +1,4 @@
-# {% if stage %}[{{ stage | upcase }}] {% endif %}{% if document %}{{ document }} - {% endif %}Comment {{ comment_id }}
+# {% if stage %}[{{ stage | upcase }}] {% endif %}{{ comment_id }} {% if document %}({{ document }}){% endif %}
 
 **Stage:** {{ stage | default: "Not specified" }}
 **Document:** {{ document | default: "Not specified" }}
