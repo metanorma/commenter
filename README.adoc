@@ -227,6 +227,7 @@ The title template (`data/github_issue_title_template.liquid`) supports these va
 * `body` - Member body abbreviation
 * `type` - Comment type code
 * `clause`, `element`, `line_number` - Location information
+* `unique_id` - Rendered unique identifier (see <<_duplicate_detection>>)
 
 ===== Body template variables
 
@@ -256,6 +257,7 @@ github:
   templates:
     title: "custom_title.liquid"
     body: "custom_body.liquid"
+    unique_id: "[{{ stage | upcase }}] {{ comment_id }}"  # Optional: customize unique ID
 ----
 ====
 
@@ -301,9 +303,75 @@ $ commenter github comments.yaml --config github_config.yaml
 
 ==== Duplicate detection
 
-The gem automatically checks for existing issues to avoid duplicates by
-searching for the comment ID in issue titles. If an issue already exists, it
-will be skipped.
+The gem automatically checks for existing issues to avoid duplicates. The duplicate
+detection uses a **configurable unique identifier** that is:
+
+. Rendered from a Liquid template
+. Embedded in the issue title for human identification
+. Used as the search pattern to find existing issues
+
+This ensures that the search pattern always matches what appears in the title,
+preventing synchronization issues.
+
+===== Unique ID template
+
+The unique identifier is defined by the `unique_id` template in your configuration:
+
+[source,yaml]
+----
+github:
+  templates:
+    # Default: "[STAGE] COMMENT_ID"
+    unique_id: "[{{ stage | upcase }}] {{ comment_id }}"
+----
+
+The default renders to: `[DIS] GB-001`
+
+===== Why stage-aware unique IDs?
+
+ISO standards go through multiple ballot stages (WD, CD, DIS, FDIS). The same
+comment ID (e.g., `GB-001`) appears at each stage, but represents **different
+comments**:
+
+| Stage | Comment ID | Unique ID | Same Issue? |
+|-------|------------|-----------|-------------|
+| CD | GB-001 | `[CD] GB-001` | No |
+| DIS | GB-001 | `[DIS] GB-001` | No |
+
+Without stage-aware unique IDs, CD `GB-001` and DIS `GB-001` would be treated as
+duplicates, causing the DIS comment to be skipped.
+
+===== Custom unique ID patterns
+
+You can customize the unique ID pattern to match your title template format:
+
+[source,yaml]
+----
+github:
+  templates:
+    # Different order
+    unique_id: "{{ comment_id }} [{{ stage | upcase }}]"
+
+    # With document prefix
+    unique_id: "{{ document }} - {{ comment_id }}"
+
+    # With body prefix (for multi-body projects)
+    unique_id: "{{ body }}/{{ comment_id }}"
+
+    # Single stage project (no stage needed)
+    unique_id: "{{ comment_id }}"
+----
+
+===== Using unique_id in templates
+
+The `unique_id` is available as a variable in title and body templates:
+
+[source,liquid]
+----
+{{ unique_id }}: {{ brief_summary }} {% if document %}({{ document }}){% endif %}
+----
+
+This renders to: `[DIS] GB-001: Clause 5.1 summary (ISO/DIS 2533)`
 
 ==== Retrieving observations from GitHub issues
 

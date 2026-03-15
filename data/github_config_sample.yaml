@@ -61,8 +61,16 @@ github:
 
   # Custom template paths (optional)
   templates:
+    # Title template for GitHub issues
+    # The {{ unique_id }} variable is required for duplicate detection
     title: "custom_title_template.liquid"
     body: "custom_body_template.liquid"
+
+    # Unique identifier template for duplicate detection
+    # This is rendered and used to search for existing issues
+    # Default: "[{{ stage | upcase }}] {{ comment_id }}"
+    # The unique_id is also available as {{ unique_id }} in title/body templates
+    unique_id: "[{{ stage | upcase }}] {{ comment_id }}"
 
   # Retrieval configuration for github-retrieve command
   retrieval:

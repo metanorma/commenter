@@ -16,6 +16,7 @@ module Commenter
 
       @title_template = load_liquid_template(title_template_path || default_title_template_path)
       @body_template = load_liquid_template(body_template_path || default_body_template_path)
+      @unique_id_template = load_unique_id_template
     end
 
     def create_issues_from_yaml(yaml_file, options = {})
@@ -70,7 +71,26 @@ module Commenter
       raise "Template file not found: #{template_path}"
     end
 
+    def load_unique_id_template
+      unique_id_config = @config.dig("github", "templates", "unique_id")
+
+      if unique_id_config
+        # Check if it's a file path or inline template
+        if File.exist?(unique_id_config)
+          load_liquid_template(unique_id_config)
+        else
+          Liquid::Template.parse(unique_id_config)
+        end
+      else
+        # Default unique_id pattern: "[STAGE] COMMENT_ID"
+        Liquid::Template.parse("[{{ stage | upcase }}] {{ comment_id }}")
+      end
+    end
+
     def template_variables(comment, comment_sheet)
+      # Render unique_id first so it can be used in other templates
+      unique_id = render_unique_id(comment, comment_sheet)
+
       {
         # Comment sheet variables
         "stage" => comment_sheet.stage || "",
@@ -95,10 +115,23 @@ module Commenter
         "line_number" => comment.line_number || "",
 
         # Computed variables
+        "unique_id" => unique_id,
         "has_observations" => !comment.observations.nil? && !comment.observations.strip.empty?,
         "has_proposed_change" => !comment.proposed_change.nil? && !comment.proposed_change.strip.empty?,
         "locality_summary" => format_locality(comment)
       }
+    end
+
+    def render_unique_id(comment, comment_sheet)
+      base_variables = {
+        "stage" => comment_sheet.stage || "",
+        "document" => comment_sheet.document || "",
+        "project" => comment_sheet.project || "",
+        "comment_id" => comment.id || "",
+        "body" => comment.body || "",
+        "type" => comment.type || ""
+      }
+      @unique_id_template.render(base_variables).strip
     end
 
     def expand_comment_type(type)
@@ -120,10 +153,10 @@ module Commenter
 
     def create_issue(comment, comment_sheet, options = {})
       puts "[GitHubIssueCreator] Creating issue for comment ID: #{comment.id}"
-      # Check if issue already exists
-      existing_issue = find_existing_issue(comment)
+      # Check if issue already exists (stage-aware)
+      existing_issue = find_existing_issue(comment, comment_sheet)
       if existing_issue
-        puts "[GitHubIssueCreator] Issue already exists for comment ID: #{comment.id}, skipping creation."
+        puts "[GitHubIssueCreator] Issue already exists for comment ID: #{comment.id} at stage #{comment_sheet.stage}, skipping creation."
         return {
           comment_id: comment.id,
           status: :skipped,
@@ -177,11 +210,13 @@ module Commenter
       }
     end
 
-    def find_existing_issue(comment)
-      puts "[GitHubIssueCreator] Searching for existing issue for comment ID: #{comment.id}"
+    def find_existing_issue(comment, comment_sheet)
+      unique_id = render_unique_id(comment, comment_sheet)
+      puts "[GitHubIssueCreator] Searching for existing issue with unique_id: #{unique_id}"
 
-      # Search for existing issues with the comment ID in the title
-      query = "repo:#{@repo} in:title #{comment.id}"
+      # Search for existing issues with the unique_id in the title
+      # The unique_id is configurable and defaults to "[STAGE] COMMENT_ID"
+      query = "repo:#{@repo} in:title \"#{unique_id}\""
       results = @github_client.search_issues(query)
       results.items.first
     rescue Octokit::Error
