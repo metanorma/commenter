@@ -120,7 +120,7 @@ RSpec.describe Commenter::GitHubIssueCreator do
         expect(result[:title]).to eq("US-001: Clause 5.1, Table 1: Test comment text")
         expect(result[:body]).to include("Comment: Test comment text")
         expect(result[:body]).to include("Type: Technical")
-        expect(result[:labels]).to include("comment-review", "draft-international-standard", "te")
+        expect(result[:labels]).to include("comment-review", "draft-international-standard", "technical")
         expect(result[:assignees]).to eq(["test-assignee"])
       end
     end
@@ -144,7 +144,7 @@ RSpec.describe Commenter::GitHubIssueCreator do
       expect(variables["stage"]).to eq("DIS")
       expect(variables["document"]).to eq("Test Document")
       expect(variables["comment_id"]).to eq("US-001")
-      expect(variables["type"]).to eq("te")
+      expect(variables["type"]).to eq("technical")
       expect(variables["type_full_name"]).to eq("Technical")
       expect(variables["clause"]).to eq("5.1")
       expect(variables["element"]).to eq("Table 1")
@@ -164,7 +164,7 @@ RSpec.describe Commenter::GitHubIssueCreator do
 
       expect(labels).to include("comment-review") # default
       expect(labels).to include("draft-international-standard") # stage-specific
-      expect(labels).to include("te") # comment type
+      expect(labels).to include("technical") # comment type (expanded)
       expect(labels.uniq).to eq(labels) # no duplicates
     end
   end
