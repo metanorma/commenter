@@ -136,9 +136,9 @@ module Commenter
 
     def expand_comment_type(type)
       case type&.downcase
-      when "ge" then "General"
-      when "te" then "Technical"
-      when "ed" then "Editorial"
+      when "ge", "general" then "General"
+      when "te", "technical" then "Technical"
+      when "ed", "editorial" then "Editorial"
       else type || "Unknown"
       end
     end
@@ -256,7 +256,7 @@ module Commenter
       assignees.compact.uniq
     end
 
-    def determine_milestone(_comment, comment_sheet, options)
+    def determine_milestone(_comment, _comment_sheet, _options)
       # # Check for stage-specific milestone
       # if comment_sheet.stage
       #   stage_milestone = @config.dig("github", "stage_milestones", comment_sheet.stage)
@@ -456,7 +456,8 @@ module Commenter
       end
 
       # Fallback to last comment if configured and no magic comment found
-      return comments.last.body.strip if @config.dig("github", "retrieval", "fallback_to_last_comment") && !comments.empty?
+      return comments.last.body.strip if @config.dig("github", "retrieval",
+                                                     "fallback_to_last_comment") && !comments.empty?
 
       nil
     rescue Octokit::Error

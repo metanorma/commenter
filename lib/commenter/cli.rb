@@ -33,7 +33,10 @@ module Commenter
       schema_target = File.join(schema_dir, "iso_comment_2012-03.yaml")
 
       # Only copy if source and target are different
-      FileUtils.cp(schema_source, schema_target) unless File.expand_path(schema_source) == File.expand_path(schema_target)
+      unless File.expand_path(schema_source) == File.expand_path(schema_target)
+        FileUtils.cp(schema_source,
+                     schema_target)
+      end
 
       puts "Converted #{input_docx} to #{output_yaml}"
       puts "Schema file created at #{schema_target}"
