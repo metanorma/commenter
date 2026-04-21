@@ -2,7 +2,9 @@
 
 module Commenter
   class Comment
-    attr_accessor :id, :body, :locality, :type, :comments, :proposed_change, :observations, :github
+    attr_accessor :id, :body, :locality, :type, :comments, :proposed_change, :observations, :github,
+      :user_name, :comment_type, :resolution_status, :resolution_date, :feedbacks, :motivation,
+      :created_date, :stage_code
 
     def initialize(attributes = {})
       # Normalize input to symbols
@@ -16,6 +18,16 @@ module Commenter
       @proposed_change = attrs[:proposed_change]
       @observations = attrs[:observations]
       @github = symbolize_keys(attrs[:github] || {})
+
+      # OSD-specific fields
+      @user_name = attrs[:user_name]
+      @comment_type = attrs[:comment_type]
+      @resolution_status = attrs[:resolution_status]
+      @resolution_date = attrs[:resolution_date]
+      @feedbacks = attrs[:feedbacks]
+      @motivation = attrs[:motivation]
+      @created_date = attrs[:created_date]
+      @stage_code = attrs[:stage_code]
     end
 
     def expand_comment_type(type)
@@ -23,6 +35,9 @@ module Commenter
       when "ge" then "general"
       when "te" then "technical"
       when "ed" then "editorial"
+      when "general" then "ge"
+      when "technical" then "te"
+      when "editorial" then "ed"
       else type
       end
     end
@@ -117,6 +132,14 @@ module Commenter
         comments: @comments,
         proposed_change: @proposed_change,
         observations: @observations,
+        user_name: @user_name,
+        comment_type: @comment_type,
+        resolution_status: @resolution_status,
+        resolution_date: @resolution_date,
+        feedbacks: @feedbacks,
+        motivation: @motivation,
+        created_date: @created_date,
+        stage_code: @stage_code,
         github: @github.empty? ? nil : @github
       }.compact
     end

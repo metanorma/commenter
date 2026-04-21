@@ -1,0 +1,112 @@
+# ISO Comment Schema for ISO Online Standards Development (OSD) format
+# Supports both resolved and unresolved XLSX exports from ISO OSD
+$schema: http://json-schema.org/draft-07/schema#
+title: ISO Comment OSD
+description: Schema for ISO comments exported from ISO Online Standards Development (OSD) platform
+type: object
+properties:
+  version:
+    type: string
+    const: "osd"
+    description: Version identifier for OSD format
+  date:
+    type: ["string", "null"]
+    description: Date from the XLSX header
+    format: date
+  document:
+    type: ["string", "null"]
+    description: Document reference (e.g. ISO/DIS 5843-6(en))
+  project:
+    type: ["string", "null"]
+    description: Project name
+  title_en:
+    type: ["string", "null"]
+    description: Document title in English
+  title_fr:
+    type: ["string", "null"]
+    description: Document title in French
+  stage:
+    type: ["string", "null"]
+    description: Approval stage (WD/CD/DIS/FDIS/PRF/PUB)
+    enum: [null, "WD", "CD", "DIS", "FDIS", "PRF", "PUB"]
+  comments:
+    type: array
+    description: Array of comment entries from the ISO OSD export
+    items:
+      type: object
+      properties:
+        id:
+          type: ["string", "number"]
+          description: "Comment ID (numeric from OSD)"
+        body:
+          type: ["string", "null"]
+          description: "Member body or user name"
+        locality:
+          type: object
+          description: "Location information for the comment"
+          properties:
+            line_number:
+              type: ["string", "null"]
+            clause:
+              type: ["string", "null"]
+            element:
+              type: ["string", "null"]
+              description: "Clause Title from OSD"
+        type:
+          type: ["string", "null"]
+          description: "Type of comment (ge/te/ed)"
+          enum: [null, "ge", "te", "ed"]
+        comments:
+          type: ["string", "null"]
+          description: "The comment text"
+        proposed_change:
+          type: ["string", "null"]
+          description: "Proposed change text"
+        observations:
+          type: ["string", "null"]
+          description: "Resolution status or observations"
+        user_name:
+          type: ["string", "null"]
+          description: "User name from OSD"
+        comment_type:
+          type: ["string", "null"]
+          description: "Comment type/subtype from OSD (e.g. Editorial, General, Technical)"
+        resolution_status:
+          type: ["string", "null"]
+          description: "Resolution status (Accepted, Partially accepted, Rejected, etc.)"
+        resolution_date:
+          type: ["string", "null"]
+          description: "Date when the comment was resolved"
+        feedbacks:
+          type: ["string", "null"]
+          description: "Feedback/replies from the discussion"
+        motivation:
+          type: ["string", "null"]
+          description: "Motivation/justification for resolution"
+        created_date:
+          type: ["string", "null"]
+          description: "Date when the comment was created"
+        stage_code:
+          type: ["string", "null"]
+          description: "ISO stage code (e.g. 40.20)"
+        github:
+          type: ["object", "null"]
+          description: "GitHub integration information"
+          properties:
+            issue_number:
+              type: integer
+            issue_url:
+              type: string
+              format: uri
+            status:
+              type: string
+              enum: ["open", "closed"]
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+          required: ["issue_number", "issue_url", "status"]
+      required: ["id", "locality", "comments"]
+required: ["version", "comments"]
