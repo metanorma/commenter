@@ -9,37 +9,45 @@ require "commenter/github_integration"
 
 module Commenter
   class Cli < Thor
-    desc "import INPUT.docx", "Convert DOCX comment sheet to YAML"
+    desc "import INPUT", "Convert comment sheet (DOCX or XLSX) to YAML"
     option :output, type: :string, aliases: :o, default: "comments.yaml", desc: "Output YAML file"
     option :exclude_observations, type: :boolean, aliases: :e, desc: "Exclude observations column"
     option :schema_dir, type: :string, default: "schema", desc: "Directory for schema file"
-    def import(input_docx)
+    option :format, type: :string, desc: "Force input format (docx or xlsx)"
+    option :sheet, type: :string, desc: "XLSX sheet name to parse (default: first sheet)"
+    option :resolved_only, type: :boolean, desc: "XLSX: use resolved comments sheet only"
+    option :unresolved_only, type: :boolean, desc: "XLSX: use unresolved comments sheet only"
+    def import(input_file)
       output_yaml = options[:output]
       schema_dir = options[:schema_dir]
 
       # Ensure schema directory exists
       FileUtils.mkdir_p(schema_dir) unless Dir.exist?(schema_dir)
 
-      # Parse the DOCX file
+      # Parse the input file
       parser = Parser.new
-      comment_sheet = parser.parse(input_docx, options)
+      comment_sheet = parser.parse(input_file, options)
+
+      # Determine which schema to use based on version
+      schema_name = comment_sheet.version == "osd" ? "iso_comment_osd.yaml" : "iso_comment_2012-03.yaml"
 
       # Write the YAML data file with schema reference
-      yaml_content = generate_yaml_with_header(comment_sheet.to_yaml_h, schema_dir)
+      yaml_content = generate_yaml_with_header(comment_sheet.to_yaml_h, schema_dir, schema_name)
       File.write(output_yaml, yaml_content)
 
       # Copy schema file to output directory
-      schema_source = File.join(__dir__, "../../schema/iso_comment_2012-03.yaml")
-      schema_target = File.join(schema_dir, "iso_comment_2012-03.yaml")
+      schema_source = File.join(__dir__, "../../schema/#{schema_name}")
+      schema_target = File.join(schema_dir, schema_name)
 
       # Only copy if source and target are different
       unless File.expand_path(schema_source) == File.expand_path(schema_target)
-        FileUtils.cp(schema_source,
-                     schema_target)
+        FileUtils.cp(schema_source, schema_target)
       end
 
-      puts "Converted #{input_docx} to #{output_yaml}"
-      puts "Schema file created at #{schema_target}"
+      puts "Converted #{input_file} to #{output_yaml}"
+      puts "  Version: #{comment_sheet.version}"
+      puts "  Comments: #{comment_sheet.comments.length}"
+      puts "  Schema: #{schema_target}"
     end
 
     desc "fill INPUT.yaml", "Fill DOCX template from YAML comments"
@@ -209,8 +217,8 @@ module Commenter
 
     private
 
-    def generate_yaml_with_header(data, schema_dir)
-      schema_path = File.join(schema_dir, "iso_comment_2012-03.yaml")
+    def generate_yaml_with_header(data, schema_dir, schema_name = "iso_comment_2012-03.yaml")
+      schema_path = File.join(schema_dir, schema_name)
       header = "# yaml-language-server: $schema=#{schema_path}\n\n"
       header + data.to_yaml
     end

@@ -7,14 +7,18 @@ image:https://img.shields.io/github/commits-since/metanorma/commenter/latest.svg
 
 == Purpose
 
-Commenter is a Ruby gem for working with ISO comment sheets in DOCX format.
+Commenter is a Ruby gem for working with ISO comment sheets in DOCX and XLSX
+format.
 
 It provides utilities for parsing, manipulating, and serializing ISO comment
-data, converting between DOCX and structured YAML with schema validation.
+data, converting between DOCX/XLSX and structured YAML with schema validation.
 
-The format is taken from:
+The supported input formats are:
 
 * "ISO/IEC/CEN/CENELEC electronic balloting commenting template/version 2012-03"
+  (DOCX)
+* ISO Online Standards Development (OSD) XLSX exports (resolved and unresolved
+  comment sheets)
 
 This gem only supports plain text comment extraction and filling. Only use this
 to handle plain text comments and resolutions.
@@ -49,19 +53,27 @@ $ gem install commenter
 
 == Usage
 
-=== Importing comments from DOCX
+=== Importing comments
 
-Convert an ISO comment sheet DOCX file to structured YAML:
+Convert an ISO comment sheet (DOCX or XLSX) to structured YAML.
+The format is auto-detected from the file extension.
 
 [source,shell]
 ----
+# From DOCX (ISO 2012-03 template or OSD DOCX export)
 $ commenter import "ISO 80000-2 review comments.docx" -o comments.yaml
+
+# From XLSX (ISO OSD resolved comment export)
+$ commenter import "91855-Comments-resolved.xlsx" -o comments.yaml
+
+# From XLSX (ISO OSD comments-only export)
+$ commenter import "ISO 5843-6-Comments.xlsx" -o comments.yaml
 ----
 
 This will create two files:
 
 `comments.yaml`:: The structured comment data
-`schema/iso_comment_2012-03.yaml`:: The YAML schema for validation
+`schema/iso_comment_2012-03.yaml` or `schema/iso_comment_osd.yaml`:: The YAML schema for validation (selected automatically based on input format)
 
 ==== Import options
 
@@ -75,6 +87,10 @@ Options:
 `-o, --output FILE`:: Output YAML file (default: comments.yaml)
 `-e, --exclude-observations`:: Skip the observations column
 `--schema-dir DIR`:: Directory for schema file (default: schema)
+`--format FORMAT`:: Force input format (`docx` or `xlsx`; auto-detected by default)
+`--sheet NAME`:: XLSX sheet name to parse (default: first sheet)
+`--resolved-only`:: XLSX: use resolved comments sheet only
+`--unresolved-only`:: XLSX: use unresolved comments sheet only
 
 ==== Metadata (extraction limitation)
 
@@ -535,7 +551,8 @@ The comment types are defined as follows:
 [source,mermaid]
 ----
 flowchart LR
-    A[ISO Comment Sheet DOCX] --> B[commenter import]
+    A1[ISO Comment Sheet DOCX] --> B[commenter import]
+    A2[ISO OSD XLSX export] --> B
     B --> C[YAML + Schema]
     C --> D[commenter github-create]
     D --> E[YAML + GitHub Info]
@@ -566,6 +583,8 @@ recognized and applied to the observations column:
 
 == Data model
 
+=== ISO 2012-03 template (DOCX)
+
 The comment structure follows this schema:
 
 [source,yaml]
@@ -593,14 +612,61 @@ comments:           # Array of comment objects
       updated_at: string      # ISO 8601 timestamp (optional)
 ----
 
+=== ISO OSD format (XLSX)
 
-== Schema validation
-
-Each exported YAML file includes a schema reference for IDE support:
+The OSD format includes additional metadata and resolution fields extracted from
+the ISO Online Standards Development platform:
 
 [source,yaml]
 ----
+version: "osd"           # OSD format identifier
+date: string             # Date from XLSX header (auto-extracted)
+document: string         # Document reference, e.g. "ISO/DIS 5843-6(en)"
+project: string          # Project name (auto-extracted)
+stage: string            # Stage: WD, CD, DIS, FDIS, PRF, PUB (auto-extracted)
+title_en: string         # Document title in English (auto-extracted)
+title_fr: string         # Document title in French (auto-extracted)
+comments:
+  - id: string           # Comment ID (numeric from OSD)
+    body: string         # User name / member body
+    locality:
+      clause: string     # Clause number
+      element: string    # Clause title
+    type: "ge" | "te" | "ed"
+    comments: string     # Comment text
+    proposed_change: string
+    observations: string # Built from resolution_status + motivation
+    user_name: string         # OSD user name
+    comment_type: string      # Subtype: Editorial, General, Technical
+    resolution_status: string # Accepted, Partially accepted, Rejected, etc.
+    resolution_date: string   # Date resolved
+    feedbacks: string         # Discussion replies
+    motivation: string        # Resolution justification
+    created_date: string      # Date comment was created
+    stage_code: string        # ISO stage code (e.g. "40.20")
+----
+
+The OSD XLSX format comes in two variants, both auto-detected:
+
+*Resolved*: 17 columns starting with `Comment ID`, includes resolution data
+(`Resolution status`, `Motivation`, `Resolution Date`, `Stage code`)
+
+*Unresolved/comments-only*: 15 columns starting with `User name`, includes
+`Comment type`, `Comment/Motivation`, `Replies`, `Comment number`
+
+
+== Schema validation
+
+Each exported YAML file includes a schema reference for IDE support.
+The schema is selected automatically based on the input format:
+
+[source,yaml]
+----
+# For ISO 2012-03 DOCX imports:
 # yaml-language-server: $schema=schema/iso_comment_2012-03.yaml
+
+# For ISO OSD XLSX imports:
+# yaml-language-server: $schema=schema/iso_comment_osd.yaml
 ----
 
 This enables:
@@ -695,7 +761,8 @@ The gem is organized into several key components:
 
 `Commenter::Comment`:: Represents individual comments with locality, type, and content
 `Commenter::CommentSheet`:: Container for multiple comments with metadata
-`Commenter::Parser`:: Handles DOCX parsing and YAML generation
+`Commenter::Parser`:: Handles DOCX and XLSX parsing with auto-detection
+`Commenter::Parser::OsdXlsxParser`:: Parses ISO OSD XLSX exports (resolved and unresolved variants)
 `Commenter::Filler`:: Fills DOCX templates with comment data
 `Commenter::GitHubIssueCreator`:: Creates GitHub issues from comments
 
@@ -703,7 +770,7 @@ The gem is organized into several key components:
 
 `Commenter::Cli`:: Thor-based command-line interface with subcommands:
 
-** `import` - Convert DOCX to YAML
+** `import` - Convert DOCX or XLSX to YAML
 ** `fill` - Fill DOCX template from YAML
 ** `github-create` - Create GitHub issues from comments
 ** `github-retrieve` - Retrieve observations from GitHub issues
@@ -714,7 +781,8 @@ The gem is organized into several key components:
 * `data/github_issue_title_template.liquid` - GitHub issue title template
 * `data/github_issue_body_template.liquid` - GitHub issue body template
 * `data/github_config_sample.yaml` - Sample GitHub configuration
-* `schema/iso_comment_2012-03.yaml` - YAML schema for validation
+* `schema/iso_comment_2012-03.yaml` - YAML schema for ISO 2012-03 validation
+* `schema/iso_comment_osd.yaml` - YAML schema for ISO OSD format validation
 
 === Debugging
 

@@ -4,7 +4,7 @@ require_relative "comment"
 
 module Commenter
   class CommentSheet
-    attr_accessor :version, :date, :document, :project, :stage, :comments
+    attr_accessor :version, :date, :document, :project, :stage, :comments, :title_en, :title_fr
 
     def initialize(attributes = {})
       # Normalize input to symbols
@@ -15,6 +15,8 @@ module Commenter
       @document = attrs[:document]
       @project = attrs[:project]
       @stage = attrs[:stage]
+      @title_en = attrs[:title_en]
+      @title_fr = attrs[:title_fr]
       @comments = (attrs[:comments] || []).map { |c| c.is_a?(Comment) ? c : Comment.from_hash(c) }
     end
 
@@ -29,12 +31,18 @@ module Commenter
         document: @document,
         project: @project,
         stage: @stage,
+        title_en: @title_en,
+        title_fr: @title_fr,
         comments: @comments.map(&:to_h)
       }
     end
 
     def to_yaml_h
-      stringify_keys(to_h.merge(comments: @comments.map(&:to_yaml_h)))
+      hash = to_h.merge(comments: @comments.map(&:to_yaml_h))
+      # Remove nil-valued keys for cleaner YAML output
+      hash.delete(:title_en) if hash[:title_en].nil?
+      hash.delete(:title_fr) if hash[:title_fr].nil?
+      stringify_keys(hash)
     end
 
     def self.from_hash(hash)
