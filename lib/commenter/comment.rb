@@ -3,8 +3,8 @@
 module Commenter
   class Comment
     attr_accessor :id, :body, :locality, :type, :comments, :proposed_change, :observations, :github,
-      :user_name, :comment_type, :resolution_status, :resolution_date, :feedbacks, :motivation,
-      :created_date, :stage_code
+                  :user_name, :comment_type, :resolution_status, :resolution_date, :feedbacks,
+                  :motivation, :created_date, :stage_code
 
     def initialize(attributes = {})
       # Normalize input to symbols
@@ -30,14 +30,14 @@ module Commenter
       @stage_code = attrs[:stage_code]
     end
 
+    # Expands short type codes to full names. One-way by design: already
+    # expanded values pass through unchanged so that reloading YAML output
+    # stays stable.
     def expand_comment_type(type)
       case type&.downcase
       when "ge" then "general"
       when "te" then "technical"
       when "ed" then "editorial"
-      when "general" then "ge"
-      when "technical" then "te"
-      when "editorial" then "ed"
       else type
       end
     end

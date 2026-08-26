@@ -40,9 +40,7 @@ module Commenter
       schema_target = File.join(schema_dir, schema_name)
 
       # Only copy if source and target are different
-      unless File.expand_path(schema_source) == File.expand_path(schema_target)
-        FileUtils.cp(schema_source, schema_target)
-      end
+      FileUtils.cp(schema_source, schema_target) unless File.expand_path(schema_source) == File.expand_path(schema_target)
 
       puts "Converted #{input_file} to #{output_yaml}"
       puts "  Version: #{comment_sheet.version}"

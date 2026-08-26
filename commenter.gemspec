@@ -12,8 +12,8 @@ Gem::Specification.new do |spec|
   spec.authors = ["Ribose"]
   spec.email = ["open.source@ribose.com"]
 
-  spec.summary = "Library to work with ISO comment sheets in DOCX format."
-  spec.description = "Convert between ISO comment sheet DOCX and structured YAML with schema validation."
+  spec.summary = "Library to work with ISO comment sheets in DOCX and XLSX formats."
+  spec.description = "Convert between ISO comment sheets (DOCX and XLSX) and structured YAML with schema validation."
   spec.homepage = "https://github.com/metanorma/commenter"
   spec.license = "BSD-2-Clause"
   spec.required_ruby_version = Gem::Requirement.new(">= 2.6.0")
