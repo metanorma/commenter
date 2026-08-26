@@ -68,8 +68,8 @@ properties:
           required: ["clause"]
         type:
           type: string
-          enum: ["ge", "te", "ed"]
-          description: "Type of comment: ge=general, te=technical, ed=editorial"
+          enum: ["ge", "te", "ed", "general", "technical", "editorial"]
+          description: "Type of comment: ge=general, te=technical, ed=editorial. Codes are expanded to full names in output"
         comments:
           type: string
           description: "The actual comment text"

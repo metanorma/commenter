@@ -54,8 +54,8 @@ properties:
               description: "Clause Title from OSD"
         type:
           type: ["string", "null"]
-          description: "Type of comment (ge/te/ed)"
-          enum: [null, "ge", "te", "ed"]
+          description: "Type of comment; codes (ge/te/ed) are expanded to general/technical/editorial in output"
+          enum: [null, "ge", "te", "ed", "general", "technical", "editorial"]
         comments:
           type: ["string", "null"]
           description: "The comment text"

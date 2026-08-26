@@ -49,68 +49,13 @@ module Commenter
       raise "No comments table found in document" unless comments_table
       raise "Comments table appears to be empty" if comments_table.row_count < 2
 
-      comments = []
-
       # Process all rows - don't skip any rows, respect all content
-      (0..comments_table.row_count - 1).each do |i|
-        row = comments_table.rows[i]
-        cells = row.cells.map { |c| c.text.strip }
-
-        # Skip only completely empty rows
+      comments = (0..comments_table.row_count - 1).map do |row_index|
+        cells = comments_table.rows[row_index].cells.map { |cell| cell.text.strip }
         next if cells.all?(&:empty?)
 
-        # The DOCX from ISO OSD has 9 columns:
-        # 0: User name, 1: (empty/line), 2: Clause nb, 3: Clause Title,
-        # 4: Type, 5: Comment, 6: (empty/proposal), 7: Observations, 8: Comment number
-        # Detect format by checking if last column looks like a numeric ID
-        if cells.length >= 9 && cells[8] && cells[8].match?(/^\d+$/)
-          # ISO OSD DOCX format (9 columns)
-          id = cells[8]
-          body = cells[0].to_s.strip
-          comment_attrs = {
-            id: id,
-            body: body,
-            locality: {
-              clause: cells[2] && cells[2].empty? ? nil : cells[2],
-              element: cells[3] && cells[3].empty? ? nil : cells[3]
-            },
-            type: normalize_type(cells[4]),
-            comments: cells[5] || "",
-            proposed_change: cells[6] && cells[6].empty? ? nil : cells[6],
-            user_name: body
-          }
-
-          unless options[:exclude_observations]
-            comment_attrs[:observations] = cells[7] && cells[7].empty? ? nil : cells[7]
-          end
-
-          comments << Comment.new(comment_attrs)
-        else
-          # Classic ISO comment template format (8 columns)
-          # 0: ID, 1: line_number, 2: clause, 3: element, 4: type, 5: comments, 6: proposed_change, 7: observations
-          id = cells[0] || ""
-          body = id.include?("-") ? id.split("-").first : id
-
-          comment_attrs = {
-            id: id,
-            body: body,
-            locality: {
-              line_number: cells[1] && cells[1].empty? ? nil : cells[1],
-              clause: cells[2] && cells[2].empty? ? nil : cells[2],
-              element: cells[3] && cells[3].empty? ? nil : cells[3]
-            },
-            type: cells[4] || "",
-            comments: cells[5] || "",
-            proposed_change: cells[6] || ""
-          }
-
-          unless options[:exclude_observations]
-            comment_attrs[:observations] = cells[7] && cells[7].empty? ? nil : cells[7]
-          end
-
-          comments << Comment.new(comment_attrs)
-        end
-      end
+        osd_docx_row?(cells) ? build_osd_docx_comment(cells, options) : build_classic_docx_comment(cells, options)
+      end.compact
 
       # Create comment sheet
       CommentSheet.new(
@@ -120,6 +65,56 @@ module Commenter
         project: metadata[:project],
         comments: comments
       )
+    end
+
+    # The DOCX from ISO OSD has 9 columns:
+    # 0: User name, 1: (empty/line), 2: Clause nb, 3: Clause Title,
+    # 4: Type, 5: Comment, 6: (empty/proposal), 7: Observations, 8: Comment number
+    # Detected by checking if last column looks like a numeric ID.
+    def osd_docx_row?(cells)
+      cells.length >= 9 && cells[8].to_s.match?(/^\d+$/)
+    end
+
+    def build_osd_docx_comment(cells, options)
+      attrs = {
+        id: cells[8],
+        body: cells[0].to_s.strip,
+        locality: {
+          clause: presence(cells[2]),
+          element: presence(cells[3])
+        },
+        type: normalize_type(cells[4]),
+        comments: cells[5] || "",
+        proposed_change: presence(cells[6]),
+        user_name: cells[0].to_s.strip
+      }
+      attrs[:observations] = presence(cells[7]) unless options[:exclude_observations]
+      Comment.new(attrs)
+    end
+
+    # Classic ISO comment template format (8 columns):
+    # 0: ID, 1: line_number, 2: clause, 3: element, 4: type, 5: comments,
+    # 6: proposed_change, 7: observations
+    def build_classic_docx_comment(cells, options)
+      id = cells[0] || ""
+      attrs = {
+        id: id,
+        body: id.include?("-") ? id.split("-").first : id,
+        locality: {
+          line_number: presence(cells[1]),
+          clause: presence(cells[2]),
+          element: presence(cells[3])
+        },
+        type: cells[4] || "",
+        comments: cells[5] || "",
+        proposed_change: cells[6] || ""
+      }
+      attrs[:observations] = presence(cells[7]) unless options[:exclude_observations]
+      Comment.new(attrs)
+    end
+
+    def presence(value)
+      value && !value.empty? ? value : nil
     end
 
     def normalize_type(type_str)

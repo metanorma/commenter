@@ -546,6 +546,10 @@ The comment types are defined as follows:
 `te`:: Technical comment
 `ed`:: Editorial comment
 
+NOTE: In generated YAML, types are stored in expanded form (`general`,
+`technical`, `editorial`). Short codes are accepted as input anywhere and are
+expanded when the comment is loaded.
+
 === Workflow integration
 
 [source,mermaid]
