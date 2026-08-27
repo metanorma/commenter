@@ -15,7 +15,12 @@ module Commenter
     # - locality.clause is resolved from the nearest preceding heading
     # - locality.element is resolved from caption/inline references
     #   (Table N, Figure N, Formula (N), NOTE n) within the current clause
-    # - observations can be stamped via the observations option
+    # - observations can be stamped via the observations or accept_all options
+    #
+    # Reviewer comment threads (word/comments.xml w:comment) are emitted
+    # after the track changes with -CNNN ids: the remark verbatim in
+    # comments, its instruction reworded as the proposed change, and empty
+    # observations for the owner to draft.
     #
     # Self-closing markers (paragraph-mark insertions inside rPr) carry no
     # content and are skipped.
@@ -33,19 +38,23 @@ module Commenter
 
       DEFAULT_BODY = "CS"
       WHOLE_DOCUMENT = "_whole document"
+      ACCEPT_ALL = "Accepted. Tracked change accepted."
 
       attr_reader :skipped_markers
 
       def parse(path, options = {})
         body = options[:body] || DEFAULT_BODY
         changes = []
+        remarks = {}
+        anchors = {}
         @skipped_markers = 0
 
         Zip::File.open(path) do |zip|
           entry = zip.glob("word/document.xml").first
           raise Commenter::Error, "word/document.xml not found in #{path}" unless entry
 
-          changes = stream_changes(entry.get_input_stream)
+          remarks = read_remarks(zip)
+          changes = stream_changes(entry.get_input_stream, anchors)
         end
 
         CommentSheet.new(
@@ -53,17 +62,40 @@ module Commenter
           date: sheet_date(changes),
           document: options[:document],
           stage: options[:stage],
-          comments: build_comments(changes, body, options)
+          comments: build_change_comments(changes, body, options) +
+                    build_remark_comments(remarks, anchors, body, options)
         )
+      end
+
+      # Turns a reviewer's remark phrased as a request ("Please remove this
+      # NOTE...") into the corresponding proposed change ("Remove this
+      # NOTE...").
+      def self.reword_remark(text)
+        text.to_s.strip.sub(/\APlease\s+/i, "").sub(/\A[a-z]/, &:upcase)
       end
 
       private
 
-      def sheet_date(changes)
-        changes.filter_map { |change| change[:date].to_s[/\A\d{4}-\d{2}-\d{2}/] }.max
+      def read_remarks(zip)
+        entry = zip.glob("word/comments.xml").first
+        return {} unless entry
+
+        document = Nokogiri::XML(entry.get_input_stream)
+        document.xpath("//w:comment", "w" => W_NS).each_with_object({}) do |node, remarks|
+          remarks[node["w:id"]] = {
+            author: node["w:author"],
+            date: node["w:date"],
+            text: node.xpath(".//w:t", "w" => W_NS).map(&:text).join
+          }
+        end
       end
 
-      def build_comments(changes, body, options)
+      def sheet_date(changes)
+        dates = changes.filter_map { |change| change[:date].to_s[/\A\d{4}-\d{2}-\d{2}/] }
+        dates.max
+      end
+
+      def build_change_comments(changes, body, options)
         changes.each_with_index.map do |change, index|
           kind = change[:kind]
           Comment.new(
@@ -78,13 +110,30 @@ module Commenter
         end
       end
 
+      def build_remark_comments(remarks, anchors, body, options)
+        remarks.keys.sort_by(&:to_i).each_with_index.map do |remark_id, index|
+          remark = remarks[remark_id]
+          anchor = anchors[remark_id] || {}
+          clause = anchor[:clause].to_s.empty? ? WHOLE_DOCUMENT : anchor[:clause]
+          Comment.new(
+            id: format("%<body>s-C%03<index>d", body: body, index: index + 1),
+            body: body,
+            locality: { clause: clause, line_number: nil, element: anchor[:element] },
+            type: options[:remark_type] || "ed",
+            comments: remark[:text],
+            proposed_change: self.class.reword_remark(remark[:text]),
+            observations: nil
+          )
+        end
+      end
+
       def observations_for(options)
         return nil if options[:exclude_observations]
 
-        options[:observations]
+        options[:observations] || (options[:accept_all] ? ACCEPT_ALL : nil)
       end
 
-      def stream_changes(io)
+      def stream_changes(io, anchors = {})
         changes = []
         change_stack = []
         paragraph = ParagraphState.new
@@ -92,7 +141,7 @@ module Commenter
         Nokogiri::XML::Reader(io).each do |reader|
           case reader.node_type
           when Nokogiri::XML::Reader::TYPE_ELEMENT
-            handle_start(reader, change_stack, paragraph)
+            handle_start(reader, change_stack, paragraph, anchors)
           when Nokogiri::XML::Reader::TYPE_TEXT, Nokogiri::XML::Reader::TYPE_SIGNIFICANT_WHITESPACE
             handle_text(reader, change_stack, paragraph)
           when Nokogiri::XML::Reader::TYPE_END_ELEMENT
@@ -103,7 +152,7 @@ module Commenter
         changes
       end
 
-      def handle_start(reader, change_stack, paragraph)
+      def handle_start(reader, change_stack, paragraph, anchors = {})
         case reader.local_name
         when "p"
           paragraph.begin_paragraph
@@ -111,7 +160,17 @@ module Commenter
           paragraph.style = reader.attribute("w:val") || reader.attribute("val")
         when "ins", "del", "moveFrom", "moveTo"
           start_change(reader, change_stack, paragraph)
+        when "commentRangeStart"
+          anchor_remark(reader, paragraph, anchors)
         end
+      end
+
+      def anchor_remark(reader, paragraph, anchors)
+        id = reader.attribute("w:id")
+        anchors[id] = {
+          clause: paragraph.pending_clause || paragraph.clause,
+          element: paragraph.pending_element || paragraph.element
+        }
       end
 
       def start_change(reader, change_stack, paragraph)

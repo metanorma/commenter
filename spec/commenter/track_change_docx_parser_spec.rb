@@ -10,9 +10,9 @@ RSpec.describe Commenter::Parser::TrackChangeDocxParser do
     { change: kind, id: id, author: author, date: date, text: text }
   end
 
-  def with_redline(paragraphs, options = {})
+  def with_redline(paragraphs, comments: [], **options)
     file = Tempfile.new(%w[redline .docx])
-    RedlineDocxBuilder.write(file.path, paragraphs)
+    RedlineDocxBuilder.write(file.path, paragraphs, comments: comments)
     yield described_class.new.parse(file.path, options)
   ensure
     file.close
@@ -192,6 +192,85 @@ RSpec.describe Commenter::Parser::TrackChangeDocxParser do
 
       with_redline(paragraphs) do |sheet|
         expect(sheet.comments.first.clause).to eq("4.2")
+      end
+    end
+  end
+
+  describe "reviewer comment threads" do
+    let(:remark_paragraphs) do
+      [
+        { change: :ins, id: "1", author: author, date: "2025-12-05T20:10:00Z", text: "tracked" },
+        { heading: true, level: 1, text: "1 Scope" },
+        { anchor: "74", text: "Values in feet." },
+        { heading: true, level: 1, text: "2 Normative references" },
+        { anchor: "88", text: "Introduction paragraph." }
+      ]
+    end
+
+    let(:remarks) do
+      [
+        { id: "74", author: author, date: "2025-12-05T20:10:00Z",
+          text: "Please provide values in km. Equivalent values in ft can be provided in brackets." },
+        { id: "88", author: author, date: "2025-12-05T20:12:00Z",
+          text: "Remove this paragraph from the Introduction." }
+      ]
+    end
+
+    it "emits remarks after track changes with -CNNN ids and verbatim text" do
+      with_redline(remark_paragraphs, comments: remarks) do |sheet|
+        expect(sheet.comments.length).to eq(3)
+
+        remark = sheet.comments.last
+        expect(sheet.comments[1].id).to eq("CS-C001")
+        expect(remark.id).to eq("CS-C002")
+        expect(remark.comments).to eq("Remove this paragraph from the Introduction.")
+      end
+    end
+
+    it "rewords the remark into proposed_change" do
+      with_redline(remark_paragraphs, comments: remarks) do |sheet|
+        expect(sheet.comments[1].proposed_change)
+          .to eq("Provide values in km. Equivalent values in ft can be provided in brackets.")
+      end
+    end
+
+    it "leaves remark observations empty for the owner to draft" do
+      with_redline(remark_paragraphs, comments: remarks) do |sheet|
+        expect(sheet.comments[1].observations).to be_nil
+      end
+    end
+
+    it "anchors remarks to the clause of their commentRangeStart" do
+      with_redline(remark_paragraphs, comments: remarks) do |sheet|
+        expect(sheet.comments[1].clause).to eq("1")
+        expect(sheet.comments.last.clause).to eq("2")
+      end
+    end
+
+    it "defaults unanchored remarks to _whole document" do
+      unanchored = [{ id: "99", author: author, date: "2025-12-05T20:10:00Z", text: "General remark." }]
+
+      with_redline([{ text: "Body" }], comments: unanchored) do |sheet|
+        expect(sheet.comments.first.clause).to eq("_whole document")
+      end
+    end
+
+    it "stamps accept_all on track changes but not on remarks" do
+      with_redline(remark_paragraphs, accept_all: true, comments: remarks) do |sheet|
+        expect(sheet.comments.first.observations).to eq("Accepted. Tracked change accepted.")
+        expect(sheet.comments[1].observations).to be_nil
+      end
+    end
+
+    it "prefers an explicit observations stamp over accept_all" do
+      with_redline(remark_paragraphs, accept_all: true, observations: "Custom.", comments: remarks) do |sheet|
+        expect(sheet.comments.first.observations).to eq("Custom.")
+      end
+    end
+
+    it "handles documents without comments.xml content" do
+      with_redline([{ text: "No changes, no remarks." }]) do |sheet|
+        expect(sheet.comments).to be_empty
       end
     end
   end

@@ -17,6 +17,7 @@ module Commenter
     option :unresolved_only, type: :boolean, desc: "XLSX: use unresolved comments sheet only"
     option :body, type: :string, desc: "Redline: member body code for comment IDs (default: CS)"
     option :observations, type: :string, desc: "Redline: observations stamped on all track changes"
+    option :accept_all, type: :boolean, desc: "Redline: stamp 'Accepted. Tracked change accepted.' on all track changes"
     option :document, type: :string, desc: "Redline: document identifier (e.g. ISO 2533:2026)"
     option :stage, type: :string, desc: "Redline: approval stage (e.g. DIS)"
     def import(input_file)
