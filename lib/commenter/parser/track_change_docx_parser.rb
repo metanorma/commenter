@@ -13,6 +13,8 @@ module Commenter
     # Captured track changes (w:ins, w:del, w:moveFrom, w:moveTo):
     # - proposed_change renders the change itself, e.g. +Insert: "text"+
     # - locality.clause is resolved from the nearest preceding heading
+    # - locality.element is resolved from caption/inline references
+    #   (Table N, Figure N, Formula (N), NOTE n) within the current clause
     # - observations can be stamped via the observations option
     #
     # Self-closing markers (paragraph-mark insertions inside rPr) carry no
@@ -67,7 +69,7 @@ module Commenter
           Comment.new(
             id: format("%<body>s-%03<index>d", body: body, index: index + 1),
             body: body,
-            locality: { clause: change[:clause], line_number: nil, element: nil },
+            locality: { clause: change[:clause], line_number: nil, element: change[:element] },
             type: options[:type] || "te",
             comments: "Track change (#{KIND_COMMENT.fetch(kind, kind)})",
             proposed_change: "#{KIND_LABEL.fetch(kind, kind)}: \"#{change[:text].strip}\"",
@@ -85,34 +87,34 @@ module Commenter
       def stream_changes(io)
         changes = []
         change_stack = []
-        heading = HeadingState.new
+        paragraph = ParagraphState.new
 
         Nokogiri::XML::Reader(io).each do |reader|
           case reader.node_type
           when Nokogiri::XML::Reader::TYPE_ELEMENT
-            handle_start(reader, change_stack, heading)
+            handle_start(reader, change_stack, paragraph)
           when Nokogiri::XML::Reader::TYPE_TEXT, Nokogiri::XML::Reader::TYPE_SIGNIFICANT_WHITESPACE
-            handle_text(reader, change_stack, heading)
+            handle_text(reader, change_stack, paragraph)
           when Nokogiri::XML::Reader::TYPE_END_ELEMENT
-            handle_end(reader, change_stack, heading, changes)
+            handle_end(reader, change_stack, paragraph, changes)
           end
         end
 
         changes
       end
 
-      def handle_start(reader, change_stack, heading)
+      def handle_start(reader, change_stack, paragraph)
         case reader.local_name
         when "p"
-          heading.begin_paragraph
+          paragraph.begin_paragraph
         when "pStyle"
-          heading.style = reader.attribute("w:val") || reader.attribute("val")
+          paragraph.style = reader.attribute("w:val") || reader.attribute("val")
         when "ins", "del", "moveFrom", "moveTo"
-          start_change(reader, change_stack, heading)
+          start_change(reader, change_stack, paragraph)
         end
       end
 
-      def start_change(reader, change_stack, heading)
+      def start_change(reader, change_stack, paragraph)
         if reader.empty_element?
           @skipped_markers += 1
           return
@@ -124,46 +126,61 @@ module Commenter
           author: reader.attribute("w:author"),
           date: reader.attribute("w:date"),
           text: +"",
-          clause: heading.clause
+          clause: paragraph.clause,
+          element: paragraph.element
         )
       end
 
-      def handle_text(reader, change_stack, heading)
+      def handle_text(reader, change_stack, paragraph)
         if (current = change_stack.last)
           current[:text] << reader.value
         else
-          heading.append_text(reader.value)
+          paragraph.append_text(reader.value)
         end
       end
 
-      def handle_end(reader, change_stack, heading, changes)
+      def handle_end(reader, change_stack, paragraph, changes)
         case reader.local_name
         when "p"
-          heading.commit_paragraph
+          paragraph.commit_paragraph
         when "ins", "del", "moveFrom", "moveTo"
           change = change_stack.pop
-          changes << finalize_change(change, heading) if change
+          changes << finalize_change(change, paragraph) if change
         end
       end
 
-      def finalize_change(change, heading)
-        # A change inside a heading paragraph belongs to that heading, which
-        # is not committed yet at this point.
-        change[:clause] = heading.pending_clause || change[:clause]
+      def finalize_change(change, paragraph)
+        # A change inside a heading or caption paragraph belongs to that
+        # paragraph, which is not committed yet at this point.
+        change[:clause] = paragraph.pending_clause || change[:clause]
+        change[:element] = paragraph.pending_element || change[:element]
         change[:clause] = WHOLE_DOCUMENT if change[:clause].to_s.empty?
         change
       end
 
-      # Tracks the current paragraph's style and text to resolve the clause
-      # context: the clause number of the most recent heading paragraph.
-      class HeadingState
+      # Tracks the current paragraph's style and text to resolve the locality
+      # context of a change:
+      #
+      # - clause: the clause number of the most recent heading paragraph; an
+      #   unnumbered sub-heading inherits its parent heading's clause
+      # - element: the nearest Table/Figure/Formula/NOTE reference, scoped to
+      #   the current clause (caption paragraphs and inline mentions both
+      #   count)
+      class ParagraphState
+        NUMBERED_CLAUSE = /\A(?:\d+(?:\.\d+)*|Annex\s+[A-Z](?:\.\d+)*|Bibliography|Foreword|Introduction)\z/i
+        ELEMENT_START = /\A\s*(NOTE\s+\d+|NOTE(?=\s*[—:-])|Table\s+(?:[A-Z]\.)?\d+(?:\.\d+)*|Figure\s+(?:[A-Z]\.)?\d+(?:\.\d+)*)\b/i
+        FORMULA = /\b(Formula\s*\(\d+(?:\.\d+)*\))/
+        ELEMENT_ANY = /\b(Table\s+(?:[A-Z]\.)?\d+(?:\.\d+)*|Figure\s+(?:[A-Z]\.)?\d+(?:\.\d+)*|NOTE\s+\d+)\b/i
+
         attr_writer :style
-        attr_reader :clause
+        attr_reader :clause, :element
 
         def initialize
           @style = nil
           @text = +""
           @clause = ""
+          @element = nil
+          @heading_stack = []
         end
 
         def begin_paragraph
@@ -172,7 +189,7 @@ module Commenter
         end
 
         def append_text(value)
-          @text << value if heading_paragraph?
+          @text << value
         end
 
         def pending_clause
@@ -182,13 +199,24 @@ module Commenter
           clause unless clause.empty?
         end
 
+        def pending_element
+          self.class.element_for(@text)
+        end
+
         def commit_paragraph
-          clause = pending_clause
-          @clause = clause if clause
+          if heading_paragraph?
+            commit_heading
+          else
+            @element = self.class.element_for(@text) || @element
+          end
         end
 
         def heading_paragraph?
           @style&.match?(HEADING_STYLE)
+        end
+
+        def self.numbered_clause?(clause)
+          clause.to_s.match?(NUMBERED_CLAUSE)
         end
 
         # Extracts the clause identifier from heading text: the leading number
@@ -206,6 +234,38 @@ module Commenter
           return Regexp.last_match(1) if s =~ /\A\s*((?:\d+\.)*\d+)\b/
 
           s
+        end
+
+        # Resolves the element reference of a paragraph: a caption opening the
+        # paragraph ("Table 3 — ...", "NOTE 2 ...", "Formula (9):") wins over an
+        # inline mention ("the values in Table 5 shall ...").
+        def self.element_for(text)
+          s = text.to_s
+          match = s.match(ELEMENT_START) || s.match(FORMULA) || s.match(ELEMENT_ANY)
+          match[1].squeeze(" ").strip if match
+        end
+
+        private
+
+        def commit_heading
+          level = heading_level
+          clause = self.class.clause_for(@text)
+          clause = inherited_clause(level) unless self.class.numbered_clause?(clause)
+          @heading_stack.pop while @heading_stack.last && @heading_stack.last[0] >= level
+          @heading_stack << [level, clause]
+          @clause = clause unless clause.empty?
+          # Element references belong to the clause they appear in.
+          @element = nil
+        end
+
+        def inherited_clause(level)
+          parent = @heading_stack.reverse.find { |(lvl, _)| lvl < level }
+          parent ? parent[1] : ""
+        end
+
+        def heading_level
+          m = @style.match(/\A(?:Heading|h)(\d+)/i)
+          m ? m[1].to_i : 1
         end
       end
     end

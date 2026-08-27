@@ -126,4 +126,73 @@ RSpec.describe Commenter::Parser::TrackChangeDocxParser do
     file.close
     file.unlink
   end
+
+  describe "element locality" do
+    def table_paragraphs
+      [
+        { heading: true, level: 1, text: "4 Basic principles" },
+        { text: "Table 3 — Atmospheric properties at altitude" },
+        { parts: [{ text: "Body " }, change(:ins, "5", "edited")] },
+        { text: "Formula (9):" },
+        { change: :del, id: "6", author: author, date: "2025-12-05T20:10:00Z", text: "old formula text" },
+        { text: "NOTE 2 — This note provides clarification." },
+        { parts: [{ text: "note body " }, change(:ins, "7", "edited")] }
+      ]
+    end
+
+    it "resolves the element from caption paragraphs and carries it to following changes" do
+      with_redline(table_paragraphs) do |sheet|
+        expect(sheet.comments.map(&:element)).to eq(["Table 3", "Formula (9)", "NOTE 2"])
+      end
+    end
+
+    it "resolves inline element mentions" do
+      paragraphs = [
+        { heading: true, level: 1, text: "5 Data tables" },
+        { parts: [{ text: "The values in Table 5 shall be " }, change(:ins, "8", "interpreted thus")] }
+      ]
+
+      with_redline(paragraphs) do |sheet|
+        expect(sheet.comments.first.element).to eq("Table 5")
+      end
+    end
+
+    it "resolves annex figure captions" do
+      paragraphs = [
+        { heading: true, level: 1, text: "Annex A" },
+        { text: "Figure A.2 — Temperature profile" },
+        { change: :ins, id: "9", author: author, date: "2025-12-05T20:10:00Z", text: "new caption text" }
+      ]
+
+      with_redline(paragraphs) do |sheet|
+        expect(sheet.comments.first.element).to eq("Figure A.2")
+      end
+    end
+
+    it "resets the element when the clause changes" do
+      paragraphs = table_paragraphs + [
+        { heading: true, level: 1, text: "5 Data tables" },
+        { parts: [{ text: "Plain body " }, change(:ins, "10", "edited")] }
+      ]
+
+      with_redline(paragraphs) do |sheet|
+        expect(sheet.comments.last.element).to be_nil
+      end
+    end
+  end
+
+  describe "unnumbered sub-headings" do
+    it "inherit the parent heading clause" do
+      paragraphs = [
+        { heading: true, level: 1, text: "4 Basic principles" },
+        { heading: true, level: 2, text: "4.2 Temperature" },
+        { heading: true, level: 3, text: "Justification" },
+        { parts: [{ text: "Body " }, change(:ins, "11", "edited")] }
+      ]
+
+      with_redline(paragraphs) do |sheet|
+        expect(sheet.comments.first.clause).to eq("4.2")
+      end
+    end
+  end
 end
