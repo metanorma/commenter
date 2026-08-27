@@ -201,7 +201,7 @@ module Commenter
             clause: clause.empty? ? nil : clause,
             element: clause_title.empty? ? nil : clause_title
           }.compact,
-          type: normalize_comment_type(cell_value_str(row, col_map[:comment_type]).to_s),
+          type: CommentType.code(cell_value_str(row, col_map[:comment_type]).to_s),
           comments: comment_text.to_s.strip,
           proposed_change: cell_value_str(row, col_map[:proposed_change]) ||
             cell_value_str(row, col_map[:proposal_on_text])
@@ -225,15 +225,6 @@ module Commenter
         parts = [cell_value_str(row, col_map[:resolution_status]),
                  cell_value_str(row, col_map[:motivation])].compact
         parts.empty? ? nil : parts.join(". ")
-      end
-
-      def normalize_comment_type(type_str)
-        case type_str.strip.downcase
-        when "editorial", "ed" then "ed"
-        when "technical", "te" then "te"
-        when "general", "ge" then "ge"
-        else type_str.strip
-        end
       end
 
       def cell_value(row, index)

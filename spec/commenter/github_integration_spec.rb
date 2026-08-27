@@ -135,49 +135,82 @@ RSpec.describe Commenter::GitHubIssueCreator do
 
   describe "template variable generation" do
     let(:creator) { described_class.new(config_file.path, title_template_file.path, body_template_file.path) }
-    let(:comment_sheet) { Commenter::CommentSheet.from_hash(yaml_data) }
-    let(:comment) { comment_sheet.comments.first }
+    let(:title_template_file) do
+      file = Tempfile.new(["title", ".liquid"])
+      file.write("{{ stage }}|{{ document }}|{{ project }}|{{ version }}|{{ comment_id }}|{{ type }}|" \
+                 "{{ type_full_name }}|{{ clause }}|{{ element }}|{{ line_number }}|" \
+                 "{{ has_observations }}|{{ has_proposed_change }}|{{ locality_summary }}|{{ unique_id }}")
+      file.close
+      file
+    end
 
-    it "generates correct template variables" do
-      variables = creator.send(:template_variables, comment, comment_sheet)
+    it "exposes sheet, comment, and computed variables to templates" do
+      result = creator.create_issues_from_yaml(yaml_file.path, dry_run: true).first
+      variables = result[:title].split("|")
 
-      expect(variables["stage"]).to eq("DIS")
-      expect(variables["document"]).to eq("Test Document")
-      expect(variables["comment_id"]).to eq("US-001")
-      expect(variables["type"]).to eq("technical")
-      expect(variables["type_full_name"]).to eq("Technical")
-      expect(variables["clause"]).to eq("5.1")
-      expect(variables["element"]).to eq("Table 1")
-      expect(variables["comments"]).to eq("Test comment text")
-      expect(variables["brief_summary"]).to include("Clause 5.1")
-      expect(variables["has_proposed_change"]).to be true
+      expect(variables).to eq(
+        [
+          "DIS", "Test Document", "Test Project", "2012-03", "US-001", "technical",
+          "Technical", "5.1", "Table 1", "", "false", "true", "Clause 5.1, Table 1", "[DIS] US-001"
+        ]
+      )
     end
   end
 
   describe "label determination" do
     let(:creator) { described_class.new(config_file.path, title_template_file.path, body_template_file.path) }
-    let(:comment_sheet) { Commenter::CommentSheet.from_hash(yaml_data) }
-    let(:comment) { comment_sheet.comments.first }
 
-    it "combines default, stage-specific, and comment type labels" do
-      labels = creator.send(:determine_labels, comment, comment_sheet)
+    it "combines default, stage-specific, and comment type labels without duplicates" do
+      result = creator.create_issues_from_yaml(yaml_file.path, dry_run: true).first
+      labels = result[:labels]
 
-      expect(labels).to include("comment-review") # default
-      expect(labels).to include("draft-international-standard") # stage-specific
-      expect(labels).to include("technical") # comment type (expanded)
-      expect(labels.uniq).to eq(labels) # no duplicates
+      expect(labels).to include("comment-review", "draft-international-standard", "technical")
+      expect(labels.uniq).to eq(labels)
     end
   end
+end
 
-  describe "comment type expansion" do
-    let(:creator) { described_class.new(config_file.path, title_template_file.path, body_template_file.path) }
+RSpec.describe Commenter::GitHubIssueRetriever do
+  let(:config_file) do
+    file = Tempfile.new(["config", ".yaml"])
+    file.write({ "github" => { "repository" => "test-org/test-repo", "token" => "test-token" } }.to_yaml)
+    file.close
+    file
+  end
 
-    it "expands comment type codes correctly" do
-      expect(creator.send(:expand_comment_type, "ge")).to eq("General")
-      expect(creator.send(:expand_comment_type, "te")).to eq("Technical")
-      expect(creator.send(:expand_comment_type, "ed")).to eq("Editorial")
-      expect(creator.send(:expand_comment_type, "unknown")).to eq("unknown")
-      expect(creator.send(:expand_comment_type, nil)).to eq("Unknown")
+  let(:osd_yaml_file) do
+    file = Tempfile.new(["comments", ".yaml"])
+    file.write({
+      "version" => "osd",
+      "document" => "ISO/DIS 5843-6(en)",
+      "stage" => "DIS",
+      "comments" => [
+        {
+          "id" => "1",
+          "body" => "John Doe",
+          "locality" => { "clause" => "5.2.1" },
+          "type" => "editorial",
+          "comments" => "The values in Table 3 are inconsistent."
+        }
+      ]
+    }.to_yaml)
+    file.close
+    file
+  end
+
+  after do
+    config_file.unlink
+    osd_yaml_file.unlink
+  end
+
+  describe "#retrieve_observations_from_yaml" do
+    it "rewrites the YAML with the schema header matching its version" do
+      retriever = described_class.new(config_file.path)
+
+      retriever.retrieve_observations_from_yaml(osd_yaml_file.path)
+
+      expect(osd_yaml_file.open.read.lines.first)
+        .to eq("# yaml-language-server: $schema=schema/iso_comment_osd.yaml\n")
     end
   end
 end

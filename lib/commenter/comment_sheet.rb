@@ -45,6 +45,14 @@ module Commenter
       stringify_keys(hash)
     end
 
+    def schema_name
+      version == "osd" ? "iso_comment_osd.yaml" : "iso_comment_2012-03.yaml"
+    end
+
+    def to_yaml_document(schema_dir = "schema")
+      "# yaml-language-server: $schema=#{File.join(schema_dir.to_s, schema_name)}\n\n#{to_yaml_h.to_yaml}"
+    end
+
     def self.from_hash(hash)
       new(hash)
     end

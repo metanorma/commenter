@@ -13,7 +13,7 @@ module Commenter
       @id = attrs[:id]
       @body = attrs[:body]
       @locality = symbolize_keys(attrs[:locality] || {})
-      @type = expand_comment_type(attrs[:type])
+      @type = CommentType.full_name(attrs[:type])
       @comments = attrs[:comments]
       @proposed_change = attrs[:proposed_change]
       @observations = attrs[:observations]
@@ -30,16 +30,8 @@ module Commenter
       @stage_code = attrs[:stage_code]
     end
 
-    # Expands short type codes to full names. One-way by design: already
-    # expanded values pass through unchanged so that reloading YAML output
-    # stays stable.
     def expand_comment_type(type)
-      case type&.downcase
-      when "ge" then "general"
-      when "te" then "technical"
-      when "ed" then "editorial"
-      else type
-      end
+      CommentType.full_name(type)
     end
 
     def line_number
