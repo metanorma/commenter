@@ -134,7 +134,7 @@ comments:
       line_number:
       clause: "_whole document"
       element:
-    type: ge
+    type: general
     comments: |
       The document should include more examples
       to clarify the implementation requirements.
@@ -150,7 +150,7 @@ comments:
       line_number: "45"
       clause: "5.2.1"
       element: "Table 3"
-    type: te
+    type: technical
     comments: |
       The values in Table 3 appear to be
       inconsistent with the formula in 5.1.
@@ -471,7 +471,7 @@ comments:
     locality:
       clause: "5.2.1"
       element: "Table 3"
-    type: te
+    type: technical
     comments: "The values in Table 3 appear inconsistent..."
     proposed_change: "Correct the values in column 2..."
     observations: ""
