@@ -8,11 +8,10 @@ require "dotenv/load"
 module Commenter
   class GitHubIssueCreator
     def initialize(config_path, title_template_path = nil, body_template_path = nil)
-      @config = load_config(config_path)
-      @github_client = create_github_client
-      @repo = @config.dig("github", "repository")
-
-      raise "GitHub repository not specified in config" unless @repo
+      @session = GitHubSession.new(config_path)
+      @config = @session.config
+      @github_client = @session.client
+      @repo = @session.repo
 
       @title_template = load_liquid_template(title_template_path || default_title_template_path)
       @body_template = load_liquid_template(body_template_path || default_body_template_path)
@@ -42,19 +41,6 @@ module Commenter
     end
 
     private
-
-    def load_config(config_path)
-      YAML.load_file(config_path)
-    rescue Errno::ENOENT
-      raise "Configuration file not found: #{config_path}"
-    end
-
-    def create_github_client
-      token = @config.dig("github", "token") || ENV["GITHUB_TOKEN"]
-      raise "GitHub token not found. Set GITHUB_TOKEN environment variable or specify in config file." unless token
-
-      Octokit::Client.new(access_token: token)
-    end
 
     def default_title_template_path
       File.join(__dir__, "../../data/github_issue_title_template.liquid")
@@ -103,7 +89,7 @@ module Commenter
         "comment_id" => comment.id || "",
         "body" => comment.body || "",
         "type" => comment.type || "",
-        "type_full_name" => expand_comment_type(comment.type),
+        "type_full_name" => CommentType.display_name(comment.type),
         "comments" => comment.comments || "",
         "proposed_change" => comment.proposed_change || "",
         "observations" => comment.observations || "",
@@ -132,15 +118,6 @@ module Commenter
         "type" => comment.type || ""
       }
       @unique_id_template.render(base_variables).strip
-    end
-
-    def expand_comment_type(type)
-      case type&.downcase
-      when "ge", "general" then "General"
-      when "te", "technical" then "Technical"
-      when "ed", "editorial" then "Editorial"
-      else type || "Unknown"
-      end
     end
 
     def format_locality(comment)
@@ -314,23 +291,16 @@ module Commenter
 
       # Write updated YAML
       output_file = options[:output] || yaml_file
-      yaml_content = generate_yaml_with_header(comment_sheet.to_yaml_h)
-      File.write(output_file, yaml_content)
-    end
-
-    def generate_yaml_with_header(data)
-      header = "# yaml-language-server: $schema=schema/iso_comment_2012-03.yaml\n\n"
-      header + data.to_yaml
+      File.write(output_file, comment_sheet.to_yaml_document)
     end
   end
 
   class GitHubIssueRetriever
     def initialize(config_path)
-      @config = load_config(config_path)
-      @github_client = create_github_client
-      @repo = @config.dig("github", "repository")
-
-      raise "GitHub repository not specified in config" unless @repo
+      @session = GitHubSession.new(config_path)
+      @config = @session.config
+      @github_client = @session.client
+      @repo = @session.repo
     end
 
     def retrieve_observations_from_yaml(yaml_file, options = {})
@@ -356,19 +326,6 @@ module Commenter
     end
 
     private
-
-    def load_config(config_path)
-      YAML.load_file(config_path)
-    rescue Errno::ENOENT
-      raise "Configuration file not found: #{config_path}"
-    end
-
-    def create_github_client
-      token = @config.dig("github", "token") || ENV["GITHUB_TOKEN"]
-      raise "GitHub token not found. Set GITHUB_TOKEN environment variable or specify in config file." unless token
-
-      Octokit::Client.new(access_token: token)
-    end
 
     def retrieve_observation(comment, options)
       issue_number = comment.github_issue_number
@@ -486,13 +443,7 @@ module Commenter
 
     def update_yaml_with_observations(yaml_file, comment_sheet, options)
       output_file = options[:output] || yaml_file
-      yaml_content = generate_yaml_with_header(comment_sheet.to_yaml_h)
-      File.write(output_file, yaml_content)
-    end
-
-    def generate_yaml_with_header(data)
-      header = "# yaml-language-server: $schema=schema/iso_comment_2012-03.yaml\n\n"
-      header + data.to_yaml
+      File.write(output_file, comment_sheet.to_yaml_document)
     end
   end
 end

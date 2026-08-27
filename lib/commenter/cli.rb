@@ -3,9 +3,7 @@
 require "thor"
 require "yaml"
 require "fileutils"
-require "commenter/parser"
-require "commenter/filler"
-require "commenter/github_integration"
+require "commenter"
 
 module Commenter
   class Cli < Thor
@@ -28,14 +26,11 @@ module Commenter
       parser = Parser.new
       comment_sheet = parser.parse(input_file, options)
 
-      # Determine which schema to use based on version
-      schema_name = comment_sheet.version == "osd" ? "iso_comment_osd.yaml" : "iso_comment_2012-03.yaml"
-
       # Write the YAML data file with schema reference
-      yaml_content = generate_yaml_with_header(comment_sheet.to_yaml_h, schema_dir, schema_name)
-      File.write(output_yaml, yaml_content)
+      File.write(output_yaml, comment_sheet.to_yaml_document(schema_dir))
 
       # Copy schema file to output directory
+      schema_name = comment_sheet.schema_name
       schema_source = File.join(__dir__, "../../schema/#{schema_name}")
       schema_target = File.join(schema_dir, schema_name)
 
@@ -211,14 +206,6 @@ module Commenter
 
     def self.exit_on_failure?
       true
-    end
-
-    private
-
-    def generate_yaml_with_header(data, schema_dir, schema_name = "iso_comment_2012-03.yaml")
-      schema_path = File.join(schema_dir, schema_name)
-      header = "# yaml-language-server: $schema=#{schema_path}\n\n"
-      header + data.to_yaml
     end
   end
 end

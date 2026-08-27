@@ -83,7 +83,7 @@ module Commenter
           clause: presence(cells[2]),
           element: presence(cells[3])
         },
-        type: normalize_type(cells[4]),
+        type: CommentType.code(cells[4]),
         comments: cells[5] || "",
         proposed_change: presence(cells[6]),
         user_name: cells[0].to_s.strip
@@ -115,15 +115,6 @@ module Commenter
 
     def presence(value)
       value && !value.empty? ? value : nil
-    end
-
-    def normalize_type(type_str)
-      case type_str.to_s.strip.downcase
-      when "editorial" then "ed"
-      when "technical" then "te"
-      when "general" then "ge"
-      else type_str.to_s.strip
-      end
     end
 
     def extract_metadata(doc)

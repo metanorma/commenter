@@ -169,6 +169,31 @@ RSpec.describe Commenter::CommentSheet do
       expect(sheet.comments.length).to eq(1)
     end
   end
+end
+
+RSpec.describe Commenter::CommentSheet do
+  describe "#schema_name" do
+    it "selects the schema for each sheet version" do
+      expect(described_class.new(version: "osd").schema_name).to eq("iso_comment_osd.yaml")
+      expect(described_class.new(version: "2012-03").schema_name).to eq("iso_comment_2012-03.yaml")
+      expect(described_class.new({}).schema_name).to eq("iso_comment_2012-03.yaml")
+    end
+  end
+
+  describe "#to_yaml_document" do
+    it "prepends a header referencing the schema matching the version" do
+      document = described_class.new(version: "osd", comments: []).to_yaml_document
+
+      expect(document.lines.first).to eq("# yaml-language-server: $schema=schema/iso_comment_osd.yaml\n")
+      expect(YAML.safe_load(document)).to include("version" => "osd")
+    end
+
+    it "accepts a schema directory" do
+      document = described_class.new(comments: []).to_yaml_document("schemas")
+
+      expect(document.lines.first).to eq("# yaml-language-server: $schema=schemas/iso_comment_2012-03.yaml\n")
+    end
+  end
 
   describe "stage validation" do
     it "accepts valid stage values" do
