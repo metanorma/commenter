@@ -84,8 +84,15 @@ Each tracked change (`w:ins`, `w:del`, `w:moveFrom`, `w:moveTo`) becomes a
 comment entry whose `proposed_change` renders the change itself
 (`Insert: "..."` / `Delete: "..."` / `Move ...: "..."`) and whose
 `locality.clause` is resolved from the nearest preceding heading (including
-sub-clauses such as `4.2.1` and `Annex A`). Self-closing paragraph-mark
-markers are skipped because they carry no content.
+sub-clauses such as `4.2.1` and `Annex A`), with `locality.element` resolved
+from the nearest `Table`/`Figure`/`Formula`/`NOTE` reference in the same
+clause. Self-closing paragraph-mark markers are skipped because they carry
+no content.
+
+Reviewer comment threads (`w:comment`) are emitted after the track changes
+with `-CNNN` ids: the remark verbatim in `comments`, its instruction
+reworded as the `proposed_change` (a leading "Please " is dropped), and
+empty `observations` for the document owner to draft.
 
 This will create two files:
 
@@ -110,6 +117,7 @@ Options:
 `--unresolved-only`:: XLSX: use unresolved comments sheet only
 `--body CODE`:: Redline: member body code for comment IDs (default: `CS`)
 `--observations TEXT`:: Redline: observations stamped on all track changes
+`--accept-all`:: Redline: stamp `Accepted. Tracked change accepted.` on all track changes (an explicit `--observations` wins)
 `--document ID`:: Redline: document identifier (e.g. `ISO 2533:2026`)
 `--stage STAGE`:: Redline: approval stage (e.g. `DIS`)
 

@@ -10,8 +10,12 @@ require "zip"
 #   { change: :ins, id: "1", author: "CHEN Yvonne", date: "2025-12-05T20:10:00Z",
 #     text: "inserted" }
 #   { marker: true }  # self-closing paragraph-mark insertion inside rPr
+#   { anchor: "74", text: "Anchored text" }  # w:commentRangeStart/End around text
 #
 # Multiple entries in one paragraph can be given via :parts.
+#
+# comments: [{ id: "74", author: "CHEN Yvonne", date: "...", text: "remark" }]
+# are written to word/comments.xml.
 module RedlineDocxBuilder
   W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
   private_constant :W_NS
@@ -20,10 +24,10 @@ module RedlineDocxBuilder
   CHANGE_TAG = { ins: "w:ins", del: "w:del", moveFrom: "w:moveFrom", moveTo: "w:moveTo" }.freeze
   private_constant :HEADING_LEVEL_STYLE, :CHANGE_TAG
 
-  def self.write(path, paragraphs)
-    xml = document_xml(paragraphs)
+  def self.write(path, paragraphs, comments: [])
     zip = Zip::File.new(path, create: true)
-    zip.get_output_stream("word/document.xml") { |stream| stream.write(xml) }
+    zip.get_output_stream("word/document.xml") { |stream| stream.write(document_xml(paragraphs)) }
+    zip.get_output_stream("word/comments.xml") { |stream| stream.write(comments_xml(comments)) }
     zip.close
     path
   end
@@ -32,6 +36,18 @@ module RedlineDocxBuilder
     <<~XML
       <?xml version="1.0" encoding="UTF-8"?>
       <w:document xmlns:w="#{W_NS}"><w:body>#{paragraphs.map { |p| paragraph_xml(p) }.join}</w:body></w:document>
+    XML
+  end
+
+  def self.comments_xml(comments)
+    entries = comments.map do |c|
+      attrs = %(w:id="#{c[:id]}" w:author="#{c[:author]}" w:date="#{c[:date]}" w:initials="X")
+      %(<w:comment #{attrs}><w:p><w:r><w:t>#{c[:text]}</w:t></w:r></w:p></w:comment>)
+    end
+
+    <<~XML
+      <?xml version="1.0" encoding="UTF-8"?>
+      <w:comments xmlns:w="#{W_NS}">#{entries.join}</w:comments>
     XML
   end
 
@@ -51,7 +67,9 @@ module RedlineDocxBuilder
             end
 
     ppr = paragraph[:heading] ? %(<w:pPr><w:pStyle w:val="#{HEADING_LEVEL_STYLE.fetch(paragraph[:level], 1)}"/></w:pPr>) : ""
-    "<w:p>#{ppr}#{inner}</w:p>"
+    anchor = paragraph[:anchor] ? %(<w:commentRangeStart w:id="#{paragraph[:anchor]}"/>) : ""
+    anchor_end = paragraph[:anchor] ? %(<w:commentRangeEnd w:id="#{paragraph[:anchor]}"/>) : ""
+    "<w:p>#{ppr}#{anchor}#{inner}#{anchor_end}</w:p>"
   end
 
   def self.part_xml(part)

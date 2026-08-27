@@ -12,3 +12,7 @@ Style/StringLiteralsInInterpolation:
 Metrics/ModuleLength:
   Exclude:
     - "spec/**/*"
+
+Metrics/BlockLength:
+  Exclude:
+    - "spec/**/*"
