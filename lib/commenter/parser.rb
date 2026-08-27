@@ -5,6 +5,7 @@ require "pathname"
 require_relative "comment_sheet"
 require_relative "comment"
 require_relative "parser/osd_xlsx_parser"
+require_relative "parser/track_change_docx_parser"
 
 module Commenter
   class Parser
@@ -16,6 +17,8 @@ module Commenter
         parse_docx(input_path, options)
       when :xlsx
         parse_xlsx(input_path, options)
+      when :redline
+        parse_redline(input_path, options)
       else
         raise "Unsupported file format: #{input_path}. Supported formats: .docx, .xlsx"
       end
@@ -36,6 +39,10 @@ module Commenter
 
     def parse_xlsx(xlsx_path, options)
       OsdXlsxParser.new.parse(xlsx_path, options)
+    end
+
+    def parse_redline(docx_path, options)
+      TrackChangeDocxParser.new.parse(docx_path, options)
     end
 
     def parse_docx(docx_path, options)

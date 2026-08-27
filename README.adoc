@@ -19,6 +19,8 @@ The supported input formats are:
   (DOCX)
 * ISO Online Standards Development (OSD) XLSX exports (resolved and unresolved
   comment sheets)
+* Redlined Word documents containing tracked changes (e.g. ISO/CS editor
+  redlines), imported with `--format redline`
 
 This gem only supports plain text comment extraction and filling. Only use this
 to handle plain text comments and resolutions.
@@ -56,7 +58,9 @@ $ gem install commenter
 === Importing comments
 
 Convert an ISO comment sheet (DOCX or XLSX) to structured YAML.
-The format is auto-detected from the file extension.
+The format is auto-detected from the file extension; redline DOCX must be
+selected explicitly with `--format redline` because the extension cannot
+distinguish a redline from a comment sheet.
 
 [source,shell]
 ----
@@ -68,7 +72,20 @@ $ commenter import "91855-Comments-resolved.xlsx" -o comments.yaml
 
 # From XLSX (ISO OSD comments-only export)
 $ commenter import "ISO 5843-6-Comments.xlsx" -o comments.yaml
+
+# From a redlined DOCX with tracked changes (ISO/CS editor redline)
+$ commenter import "ISO_DIS 2533 Enquiry Trackchange Word.docx" --format redline \
+    --body CS --document "ISO 2533:2026" --stage DIS \
+    --observations "Accepted. ISO/CS tracked change accepted." \
+    -o comments-cs.yaml
 ----
+
+Each tracked change (`w:ins`, `w:del`, `w:moveFrom`, `w:moveTo`) becomes a
+comment entry whose `proposed_change` renders the change itself
+(`Insert: "..."` / `Delete: "..."` / `Move ...: "..."`) and whose
+`locality.clause` is resolved from the nearest preceding heading (including
+sub-clauses such as `4.2.1` and `Annex A`). Self-closing paragraph-mark
+markers are skipped because they carry no content.
 
 This will create two files:
 
@@ -87,10 +104,14 @@ Options:
 `-o, --output FILE`:: Output YAML file (default: comments.yaml)
 `-e, --exclude-observations`:: Skip the observations column
 `--schema-dir DIR`:: Directory for schema file (default: schema)
-`--format FORMAT`:: Force input format (`docx` or `xlsx`; auto-detected by default)
-`--sheet NAME`:: XLSX sheet name to parse (default: first sheet)
+`--format FORMAT`:: Force input format (`docx`, `xlsx` or `redline`; auto-detected by default)
+`--sheet NAME`:: XLSX: sheet name to parse (default: first sheet)
 `--resolved-only`:: XLSX: use resolved comments sheet only
 `--unresolved-only`:: XLSX: use unresolved comments sheet only
+`--body CODE`:: Redline: member body code for comment IDs (default: `CS`)
+`--observations TEXT`:: Redline: observations stamped on all track changes
+`--document ID`:: Redline: document identifier (e.g. `ISO 2533:2026`)
+`--stage STAGE`:: Redline: approval stage (e.g. `DIS`)
 
 ==== Metadata (extraction limitation)
 

@@ -7,14 +7,18 @@ require "commenter"
 
 module Commenter
   class Cli < Thor
-    desc "import INPUT", "Convert comment sheet (DOCX or XLSX) to YAML"
+    desc "import INPUT", "Convert comment sheet (DOCX or XLSX) or redline DOCX to YAML"
     option :output, type: :string, aliases: :o, default: "comments.yaml", desc: "Output YAML file"
     option :exclude_observations, type: :boolean, aliases: :e, desc: "Exclude observations column"
     option :schema_dir, type: :string, default: "schema", desc: "Directory for schema file"
-    option :format, type: :string, desc: "Force input format (docx or xlsx)"
+    option :format, type: :string, desc: "Force input format (docx, xlsx or redline)"
     option :sheet, type: :string, desc: "XLSX sheet name to parse (default: first sheet)"
     option :resolved_only, type: :boolean, desc: "XLSX: use resolved comments sheet only"
     option :unresolved_only, type: :boolean, desc: "XLSX: use unresolved comments sheet only"
+    option :body, type: :string, desc: "Redline: member body code for comment IDs (default: CS)"
+    option :observations, type: :string, desc: "Redline: observations stamped on all track changes"
+    option :document, type: :string, desc: "Redline: document identifier (e.g. ISO 2533:2026)"
+    option :stage, type: :string, desc: "Redline: approval stage (e.g. DIS)"
     def import(input_file)
       output_yaml = options[:output]
       schema_dir = options[:schema_dir]
