@@ -20,6 +20,16 @@ CI (metanorma/ci `generic-rake.yml`) runs `bundle exec rake` on Ruby 3.2/3.4/4.0
 
 Specs generate XLSX fixtures at runtime via `spec/support/xlsx_builder.rb` (plain rubyzip, no spreadsheet-writing dependency) plus row data in `spec/support/osd_fixtures.rb` — there are no binary fixture files in the repo.
 
+## Release
+
+NEVER bump `lib/commenter/version.rb` by hand and never push tags. Releases go through the GHA workflow, which does the version bump, `v*` tag, and gem push itself:
+
+```sh
+gh workflow run release.yml --ref main -f next_version=X.Y.Z
+```
+
+The version number is the maintainer's decision — ask, never infer it from semver reasoning. PRs are rebase-merged.
+
 ## What this gem does
 
 Converts ISO comment sheets to structured YAML and back, and syncs comments to GitHub issues:
@@ -34,11 +44,11 @@ Plain text only — formulas/images/complex formatting are unsupported (docx gem
 
 Core flow: `Parser` → `CommentSheet` (metadata + `Comment` objects) → YAML / DOCX / GitHub issues.
 
-- `Commenter::Comment` / `Commenter::CommentSheet` — data model. `Comment` carries the common fields plus optional OSD-specific fields (`user_name`, `resolution_status`, `motivation`, etc.) and a `github` sub-hash tracking issue state. The sheet's `version` field (`"2012-03"` vs `"osd"`) selects the output schema.
+- `Commenter::Comment` / `Commenter::CommentSheet` — data model. `Comment` carries the common fields plus optional OSD-specific fields (`user_name`, `resolution_status`, `motivation`, etc.) and a `github` sub-hash tracking issue state. Comment types: short codes (`ge`/`te`/`ed`) are expanded to full names (`general`/`technical`/`editorial`) when a `Comment` is loaded; YAML output stores the expanded form. The sheet's `version` field (`"2012-03"` vs `"osd"`) selects the output schema.
 - `Commenter::Parser` — dispatches by format: `.docx` parsed inline with the `docx` gem; `.xlsx` delegated to `Parser::OsdXlsxParser` (uses `roo`).
 - `Parser::OsdXlsxParser` — auto-detects two OSD export variants by header row ("resolved" 17-col starting `Comment ID`; "unresolved" 15-col starting `User name`), extracts metadata (date/reference/stage/titles) from header rows 1–2, maps columns by header name into `Comment` attributes, and synthesizes `observations` from `resolution_status` + `motivation`.
-- `Commenter::Filler` — writes comments into the DOCX template table.
-- `Commenter::GitHubIssueCreator` (`lib/commenter/github_integration.rb`) — Octokit-based; duplicate detection searches for a unique ID rendered from a configurable Liquid `unique_id` template (stage-aware by default: `[DIS] GB-001`), so the same comment ID at different ballot stages creates separate issues.
+- `Commenter::Filler` — writes comments into the DOCX template table; maps observation status text (`accept(ed)?`, `noted`, `reject(ed)?`, …) to shading colors.
+- GitHub integration (`lib/commenter/github_integration.rb`) — two classes with parallel structure: `GitHubIssueCreator` (`github-create`) and `GitHubIssueRetriever` (`github-retrieve`). Each loads its own config YAML and Octokit client, and rewrites the comments YAML in place after the run. Duplicate detection searches issue titles for a unique ID rendered from a configurable Liquid `unique_id` template (stage-aware by default: `[DIS] GB-001`), so the same comment ID at different ballot stages creates separate issues.
 - `Commenter::Cli` (`lib/commenter/cli.rb`) — Thor CLI with subcommands `import`, `fill`, `github-create`, `github-retrieve`.
 
 ### Schemas
@@ -55,4 +65,3 @@ Core flow: `Parser` → `CommentSheet` (metadata + `Comment` objects) → YAML /
 - `data/` files (DOCX template, Liquid templates, sample config) are shipped with the gem and loaded relative to `__dir__` — do not treat them as disposable.
 - Testing GitHub integration: use `--dry-run` with `GITHUB_TOKEN=dummy_token` — exercises template rendering without API calls.
 - `sig/commenter.rbs` is a minimal stub; RBS coverage is not currently maintained.
-- Release: pushing a `v*` tag triggers `.github/workflows/release.yml`. Version lives in `lib/commenter/version.rb`.
