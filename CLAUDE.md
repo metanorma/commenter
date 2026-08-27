@@ -18,7 +18,7 @@ bin/console                      # interactive prompt
 
 CI (metanorma/ci `generic-rake.yml`) runs `bundle exec rake` on Ruby 3.2/3.4/4.0 across macOS/Ubuntu/Windows. RuboCop offenses fail CI — run `bundle exec rake`, not just rspec, before pushing. `Gemfile.lock` is gitignored; dependencies resolve fresh in CI.
 
-Specs generate XLSX fixtures at runtime via `spec/support/xlsx_builder.rb` (plain rubyzip, no spreadsheet-writing dependency) plus row data in `spec/support/osd_fixtures.rb` — there are no binary fixture files in the repo.
+Specs generate XLSX fixtures at runtime via `spec/support/xlsx_builder.rb` (plain rubyzip, no spreadsheet-writing dependency) plus row data in `spec/support/osd_fixtures.rb` — there are no binary fixture files in the repo. Redline DOCX fixtures are built at runtime via `spec/support/redline_docx_builder.rb` (same approach).
 
 ## Release
 
@@ -34,7 +34,7 @@ The version number is the maintainer's decision — ask, never infer it from sem
 
 Converts ISO comment sheets to structured YAML and back, and syncs comments to GitHub issues:
 
-- **Import**: DOCX (ISO 2012-03 balloting template) or XLSX (ISO Online Standards Development exports) → YAML + schema file. Format auto-detected from extension.
+- **Import**: DOCX (ISO 2012-03 balloting template) or XLSX (ISO Online Standards Development exports) → YAML + schema file. Format auto-detected from extension. Redline DOCX with tracked changes is dispatched to `Parser::TrackChangeDocxParser` via `--format redline`.
 - **Fill**: YAML → filled DOCX comment sheet (`data/iso_comment_template_2012-03.docx`), optional status-based cell shading.
 - **GitHub round-trip**: `github-create` makes issues from YAML via Liquid templates; `github-retrieve` pulls `> **OBSERVATION:**` blockquotes from closed issues back into the YAML's observations field.
 
@@ -45,8 +45,9 @@ Plain text only — formulas/images/complex formatting are unsupported (docx gem
 Core flow: `Parser` → `CommentSheet` (metadata + `Comment` objects) → YAML / DOCX / GitHub issues.
 
 - `Commenter::Comment` / `Commenter::CommentSheet` — data model. `Comment` carries the common fields plus optional OSD-specific fields (`user_name`, `resolution_status`, `motivation`, etc.) and a `github` sub-hash tracking issue state. Comment types: short codes (`ge`/`te`/`ed`) are expanded to full names (`general`/`technical`/`editorial`) when a `Comment` is loaded; YAML output stores the expanded form. The sheet's `version` field (`"2012-03"` vs `"osd"`) selects the output schema.
-- `Commenter::Parser` — dispatches by format: `.docx` parsed inline with the `docx` gem; `.xlsx` delegated to `Parser::OsdXlsxParser` (uses `roo`).
+- `Commenter::Parser` — dispatches by format: `.docx` parsed inline with the `docx` gem; `.xlsx` delegated to `Parser::OsdXlsxParser` (uses `roo`); `redline` delegated to `Parser::TrackChangeDocxParser`.
 - `Parser::OsdXlsxParser` — auto-detects two OSD export variants by header row ("resolved" 17-col starting `Comment ID`; "unresolved" 15-col starting `User name`), extracts metadata (date/reference/stage/titles) from header rows 1–2, maps columns by header name into `Comment` attributes, and synthesizes `observations` from `resolution_status` + `motivation`.
+- `Parser::TrackChangeDocxParser` — redline DOCX import: streams `word/document.xml` with Nokogiri XML::Reader (redlines can exceed 100 MB), captures `w:ins`/`w:del`/`w:moveFrom`/`w:moveTo` as comment entries (`proposed_change` renders the change itself, e.g. `Insert: "text"`; clause resolved from the nearest preceding heading including sub-clauses; self-closing paragraph-mark markers skipped), stamps `observations` from the `observations` option.
 - `Commenter::Filler` — writes comments into the DOCX template table; maps observation status text (`accept(ed)?`, `noted`, `reject(ed)?`, …) to shading colors.
 - GitHub integration (`lib/commenter/github_integration.rb`) — two classes with parallel structure: `GitHubIssueCreator` (`github-create`) and `GitHubIssueRetriever` (`github-retrieve`). Each loads its own config YAML and Octokit client, and rewrites the comments YAML in place after the run. Duplicate detection searches issue titles for a unique ID rendered from a configurable Liquid `unique_id` template (stage-aware by default: `[DIS] GB-001`), so the same comment ID at different ballot stages creates separate issues.
 - `Commenter::Cli` (`lib/commenter/cli.rb`) — Thor CLI with subcommands `import`, `fill`, `github-create`, `github-retrieve`.
