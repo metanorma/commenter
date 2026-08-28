@@ -32,4 +32,45 @@ RSpec.describe Commenter::Cli do
       end
     end
   end
+
+  describe "#merge" do
+    it "writes a combined sheet with schema reference" do
+      Dir.mktmpdir do |dir|
+        one = File.join(dir, "de.yaml")
+        two = File.join(dir, "us.yaml")
+        File.write(one, { "version" => "2012-03", "comments" => [
+          { "id" => "DE-001", "body" => "DE", "comments" => "First" }
+        ] }.to_yaml)
+        File.write(two, { "comments" => [
+          { "id" => "US-001", "body" => "US", "comments" => "Second" }
+        ] }.to_yaml)
+        output = File.join(dir, "out", "merged.yaml")
+        schema_dir = File.join(dir, "out", "schema")
+
+        described_class.start(["merge", one, two, "--output", output, "--schema-dir", schema_dir])
+
+        data = YAML.safe_load_file(output)
+        expect(data["comments"].map { |comment| comment["id"] }).to eq(%w[DE-001 US-001])
+        expect(File).to exist(File.join(schema_dir, "iso_comment_2012-03.yaml"))
+      end
+    end
+  end
+
+  describe "#stats" do
+    it "prints a markdown disposition report" do
+      Dir.mktmpdir do |dir|
+        input = File.join(dir, "comments.yaml")
+        File.write(input, { "comments" => [
+          { "id" => "DE-001", "body" => "DE", "comments" => "A", "observations" => "Accepted." },
+          { "id" => "US-001", "body" => "US", "comments" => "B", "observations" => "Noted" }
+        ] }.to_yaml)
+
+        expect { described_class.start(["stats", input]) }
+          .to output(a_string_including(
+                       "| DE | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |",
+                       "| US | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |"
+                     )).to_stdout
+      end
+    end
+  end
 end
