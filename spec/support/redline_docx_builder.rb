@@ -25,10 +25,17 @@ module RedlineDocxBuilder
   private_constant :HEADING_LEVEL_STYLE, :CHANGE_TAG
 
   def self.write(path, paragraphs, comments: [])
-    zip = Zip::File.new(path, create: true)
-    zip.get_output_stream("word/document.xml") { |stream| stream.write(document_xml(paragraphs)) }
-    zip.get_output_stream("word/comments.xml") { |stream| stream.write(comments_xml(comments)) }
-    zip.close
+    # Written via an in-memory buffer and File.binwrite rather than
+    # Zip::File#create + close: rubyzip commits the latter with File.rename,
+    # which fails with EACCES on Windows when the caller still holds an open
+    # handle on the destination (e.g. an unclosed Tempfile).
+    buffer = Zip::OutputStream.write_buffer do |out|
+      out.put_next_entry("word/document.xml")
+      out.write(document_xml(paragraphs))
+      out.put_next_entry("word/comments.xml")
+      out.write(comments_xml(comments))
+    end
+    File.binwrite(path, buffer.string)
     path
   end
 
