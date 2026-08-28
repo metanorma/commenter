@@ -54,7 +54,7 @@ module Commenter
           raise Commenter::Error, "word/document.xml not found in #{path}" unless entry
 
           remarks = read_remarks(zip)
-          changes = stream_changes(entry.get_input_stream, anchors)
+          changes = entry.get_input_stream { |stream| stream_changes(stream, anchors) }
         end
 
         CommentSheet.new(
@@ -80,7 +80,7 @@ module Commenter
         entry = zip.glob("word/comments.xml").first
         return {} unless entry
 
-        document = Nokogiri::XML(entry.get_input_stream)
+        document = entry.get_input_stream { |stream| Nokogiri::XML(stream) }
         document.xpath("//w:comment", "w" => W_NS).each_with_object({}) do |node, remarks|
           remarks[node["w:id"]] = {
             author: node["w:author"],
