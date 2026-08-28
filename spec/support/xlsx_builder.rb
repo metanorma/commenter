@@ -18,22 +18,27 @@ module XlsxBuilder
     shared = []
     worksheets = sheets.map { |name, rows| [name, worksheet_xml(rows, shared)] }
 
-    zip = Zip::File.new(path, create: true)
-    write_entry(zip, "[Content_Types].xml", content_types_xml(worksheets.size))
-    write_entry(zip, "_rels/.rels", root_rels_xml)
-    write_entry(zip, "xl/workbook.xml", workbook_xml(worksheets.map(&:first)))
-    write_entry(zip, "xl/_rels/workbook.xml.rels", workbook_rels_xml(worksheets.size))
-    write_entry(zip, "xl/sharedStrings.xml", shared_strings_xml(shared))
-    write_entry(zip, "xl/styles.xml", styles_xml)
-    worksheets.each_with_index do |(_name, xml), index|
-      write_entry(zip, "xl/worksheets/sheet#{index + 1}.xml", xml)
+    # In-memory buffer + File.binwrite rather than Zip::File#create + close:
+    # rubyzip commits the latter with File.rename, which fails with EACCES on
+    # Windows when the caller still holds an open handle on the destination.
+    buffer = Zip::OutputStream.write_buffer do |out|
+      write_entry(out, "[Content_Types].xml", content_types_xml(worksheets.size))
+      write_entry(out, "_rels/.rels", root_rels_xml)
+      write_entry(out, "xl/workbook.xml", workbook_xml(worksheets.map(&:first)))
+      write_entry(out, "xl/_rels/workbook.xml.rels", workbook_rels_xml(worksheets.size))
+      write_entry(out, "xl/sharedStrings.xml", shared_strings_xml(shared))
+      write_entry(out, "xl/styles.xml", styles_xml)
+      worksheets.each_with_index do |(_name, xml), index|
+        write_entry(out, "xl/worksheets/sheet#{index + 1}.xml", xml)
+      end
     end
-    zip.close
+    File.binwrite(path, buffer.string)
     path
   end
 
-  def self.write_entry(zip, name, content)
-    zip.get_output_stream(name) { |stream| stream.write(content) }
+  def self.write_entry(out, name, content)
+    out.put_next_entry(name)
+    out.write(content)
   end
 
   def self.worksheet_xml(rows, shared)
