@@ -13,5 +13,8 @@ module Commenter
   class Error < StandardError; end
 
   autoload :CommentType, "commenter/comment_type"
+  autoload :DispositionStatus, "commenter/disposition_status"
+  autoload :Ballot, "commenter/ballot"
+  autoload :BallotReport, "commenter/ballot_report"
   autoload :GitHubSession, "commenter/github_session"
 end

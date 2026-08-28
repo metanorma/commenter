@@ -21,31 +21,48 @@ module Commenter
     option :document, type: :string, desc: "Redline: document identifier (e.g. ISO 2533:2026)"
     option :stage, type: :string, desc: "Redline: approval stage (e.g. DIS)"
     def import(input_file)
-      output_yaml = options[:output]
-      schema_dir = options[:schema_dir]
-
-      # Ensure schema directory exists
-      FileUtils.mkdir_p(schema_dir) unless Dir.exist?(schema_dir)
-
       # Parse the input file
-      parser = Parser.new
-      comment_sheet = parser.parse(input_file, options)
+      comment_sheet = Parser.new.parse(input_file, options)
 
-      # Write the YAML data file with schema reference
-      File.write(output_yaml, comment_sheet.to_yaml_document(schema_dir))
+      schema_target = write_sheet(comment_sheet, options[:output], options[:schema_dir])
 
-      # Copy schema file to output directory
-      schema_name = comment_sheet.schema_name
-      schema_source = File.join(__dir__, "../../schema/#{schema_name}")
-      schema_target = File.join(schema_dir, schema_name)
-
-      # Only copy if source and target are different
-      FileUtils.cp(schema_source, schema_target) unless File.expand_path(schema_source) == File.expand_path(schema_target)
-
-      puts "Converted #{input_file} to #{output_yaml}"
+      puts "Converted #{input_file} to #{options[:output]}"
       puts "  Version: #{comment_sheet.version}"
       puts "  Comments: #{comment_sheet.comments.length}"
       puts "  Schema: #{schema_target}"
+    end
+
+    desc "merge INPUT.yaml...", "Merge multiple comment sheets into one ballot sheet"
+    option :output, type: :string, aliases: :o, default: "merged.yaml", desc: "Output YAML file"
+    option :schema_dir, type: :string, default: "schema", desc: "Directory for schema file"
+    def merge(*input_files)
+      raise "At least one input file is required" if input_files.empty?
+
+      sheets = input_files.map { |path| CommentSheet.from_hash(YAML.load_file(path)) }
+      comment_sheet = Ballot.new(sheets).merge
+      write_sheet(comment_sheet, options[:output], options[:schema_dir])
+
+      puts "Merged #{input_files.length} files (#{comment_sheet.comments.length} comments) to #{options[:output]}"
+    end
+
+    desc "stats INPUT.yaml", "Disposition statistics for ballot reports"
+    option :output, type: :string, aliases: :o, desc: "Output file (default: stdout)"
+    option :format, type: :string, default: "markdown", enum: %w[markdown yaml], desc: "Report format"
+    def stats(input_yaml)
+      comment_sheet = CommentSheet.from_hash(YAML.load_file(input_yaml))
+
+      report = if options[:format] == "yaml"
+                 BallotReport.counts(comment_sheet).to_yaml
+               else
+                 BallotReport.to_markdown(comment_sheet)
+               end
+
+      if options[:output]
+        File.write(options[:output], report)
+        puts "Wrote statistics to #{options[:output]}"
+      else
+        puts report
+      end
     end
 
     desc "fill INPUT.yaml", "Fill DOCX template from YAML comments"
@@ -211,6 +228,19 @@ module Commenter
 
     def self.exit_on_failure?
       true
+    end
+
+    private
+
+    def write_sheet(comment_sheet, output_yaml, schema_dir)
+      FileUtils.mkdir_p(schema_dir) unless Dir.exist?(schema_dir)
+      File.write(output_yaml, comment_sheet.to_yaml_document(schema_dir))
+
+      schema_name = comment_sheet.schema_name
+      schema_source = File.join(__dir__, "../../schema/#{schema_name}")
+      schema_target = File.join(schema_dir, schema_name)
+      FileUtils.cp(schema_source, schema_target) unless File.expand_path(schema_source) == File.expand_path(schema_target)
+      schema_target
     end
   end
 end

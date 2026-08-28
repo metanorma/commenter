@@ -111,21 +111,16 @@ module Commenter
       puts "Warning: Could not apply shading to cell: #{e.message}"
     end
 
-    def determine_shading_color(observation)
-      text = observation.downcase.strip
+    SHADING_COLORS = {
+      accept_with_modifications: "C4D79B", # Olive Green
+      accepted: "92D050", # Green
+      noted: "8DB4E2", # Blue
+      rejected: "FF99CC", # Pink
+      todo: "D9D9D9" # Light Gray (for diagonal stripes, we use solid for now)
+    }.freeze
 
-      case text
-      when /awm|accept with modifications/
-        "C4D79B"  # Olive Green
-      when /accept(ed)?/
-        "92D050"  # Green
-      when /noted/
-        "8DB4E2"  # Blue
-      when /reject(ed)?/
-        "FF99CC"  # Pink
-      when /todo/
-        "D9D9D9"  # Light Gray (for diagonal stripes, we'll use solid for now)
-      end
+    def determine_shading_color(observation)
+      SHADING_COLORS[DispositionStatus.match(observation)]
     end
 
     def apply_cell_shading(cell, color)

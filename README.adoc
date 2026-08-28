@@ -189,6 +189,50 @@ comments:
     observations:
 ----
 
+=== Merging comment sheets (ballot collation)
+
+A secretariat receives one comment file per member body per ballot — mixed
+DOCX templates, OSD XLSX exports, and late redlines that arrive by email.
+`commenter merge` collates them into a single ballot sheet:
+
+[source,shell]
+----
+commenter merge de.yaml us.yaml jp.yaml cs-redline.yaml -o ballot.yaml
+----
+
+Metadata (document, stage, date) is taken from the first sheet that provides
+each field. Comments keep their input order. Identical duplicates of the same
+comment ID are deduplicated silently; the same ID with differing content
+raises an error listing the conflicting IDs — collation stops loudly rather
+than silently dropping a member's comment.
+
+=== Ballot statistics (disposition reports)
+
+Every ballot report needs disposition counts — by member body and overall.
+The data is already in the YAML, so `commenter stats` produces the table:
+
+[source,shell]
+----
+commenter stats ballot.yaml
+----
+
+[source,markdown]
+....
+| Body | Total | Accepted | AWM | Noted | Rejected | TODO | Open | Undecided |
+|------|-------|----------|-----|-------|----------|------|------|-----------|
+| DE   | 12    | 5        | 3   | 2     | 1        | 0    | 0    | 1         |
+| US   | 9     | 4        | 1   | 2     | 1        | 0    | 1    | 0         |
+| **Total** | **21** | **9** | **4** | **4** | **2** | **0** | **1** | **1** |
+
+Comment types: technical 13 · general 5 · editorial 3
+....
+
+A comment's disposition is read from its `observations` text, falling back to
+the OSD `resolution_status` field, then to the GitHub issue state (a still-open
+issue counts as *open*; no disposition at all counts as *undecided*). Use
+`--format yaml` for machine-readable output, and `-o report.md` to write to a
+file — the Markdown pastes directly into a GitHub issue or WG minutes.
+
 === Filling DOCX templates from YAML
 
 This gem contains a command-line utility to fill a DOCX template with comments
@@ -605,10 +649,10 @@ recognized and applied to the observations column:
 |===
 | Status Pattern | Intended Color | Hex Code | Example
 
+| `awm\|accept(ed)? with (modifications\|changes)` | Olive Green | #C4D79B | "Accepted with modifications"
 | `accept(ed)?` | Green | #92D050 | "Accepted"
-| `awm\|accept with modifications` | Olive Green | #C4D79B | "Accept with modifications"
 | `noted` | Blue | #8DB4E2 | "Noted"
-| `reject(ed)?` | Pink | #FF99CC | "Rejected"
+| `reject(ed)?\|not accepted` | Pink | #FF99CC | "Rejected"
 | `todo` | Diagonal stripes | #D9D9D9 | "TODO: Review"
 
 |===
