@@ -115,21 +115,21 @@ RSpec.describe Commenter::CommentSheet do
 
       hash = sheet.to_h
 
-      expect(hash[:version]).to eq("2012-03")
-      expect(hash[:date]).to eq("2024-06-04")
-      expect(hash[:document]).to eq("Test Document")
-      expect(hash[:project]).to eq("Test Project")
-      expect(hash[:stage]).to eq("DIS")
-      expect(hash[:comments]).to be_an(Array)
-      expect(hash[:comments].first).to be_a(Hash)
+      expect(hash["version"]).to eq("2012-03")
+      expect(hash["date"]).to eq("2024-06-04")
+      expect(hash["document"]).to eq("Test Document")
+      expect(hash["project"]).to eq("Test Project")
+      expect(hash["stage"]).to eq("DIS")
+      expect(hash["comments"]).to be_an(Array)
+      expect(hash["comments"].first).to be_a(Hash)
     end
 
-    it "includes nil stage when not set" do
+    it "omits unset attributes from the hash" do
       sheet = described_class.new({})
       hash = sheet.to_h
 
-      expect(hash).to have_key(:stage)
-      expect(hash[:stage]).to be_nil
+      expect(hash).not_to have_key("stage")
+      expect(sheet.version).to eq("2012-03")
     end
   end
 

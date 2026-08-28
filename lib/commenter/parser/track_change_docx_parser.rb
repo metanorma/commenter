@@ -2,8 +2,6 @@
 
 require "zip"
 require "nokogiri"
-require_relative "../comment"
-require_relative "../comment_sheet"
 
 module Commenter
   class Parser
@@ -102,7 +100,7 @@ module Commenter
             id: format("%<body>s-%03<index>d", body: body, index: index + 1),
             body: body,
             locality: { clause: change[:clause], line_number: nil, element: change[:element] },
-            type: options[:type] || "te",
+            type: CommentType.full_name(options[:type] || "te"),
             comments: "Track change (#{KIND_COMMENT.fetch(kind, kind)})",
             proposed_change: "#{KIND_LABEL.fetch(kind, kind)}: \"#{change[:text].strip}\"",
             observations: observations_for(options)

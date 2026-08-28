@@ -25,7 +25,11 @@ module Commenter
     end
 
     def full_name(type)
-      FULL_NAMES.fetch(type.to_s.strip.downcase) { type&.to_s&.strip }
+      return nil if type.nil?
+
+      value = type.to_s.strip
+      downcased = value.downcase
+      FULL_NAMES[downcased] || (FULL_NAMES.values.include?(downcased) ? downcased : value)
     end
 
     def display_name(type)

@@ -34,6 +34,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "docx", "~> 0.8"
   spec.add_dependency "dotenv", "~> 2.8"
   spec.add_dependency "liquid", "~> 5.0"
+  spec.add_dependency "lutaml-model", "~> 0.8"
   spec.add_dependency "octokit", "~> 6.0"
   spec.add_dependency "roo", ">= 2.10"
   spec.add_dependency "thor", "~> 1.0"

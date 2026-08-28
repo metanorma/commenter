@@ -38,7 +38,7 @@ module Commenter
     def merge(*input_files)
       raise "At least one input file is required" if input_files.empty?
 
-      sheets = input_files.map { |path| CommentSheet.from_hash(YAML.load_file(path)) }
+      sheets = input_files.map { |path| CommentSheet.from_yaml(File.read(path)) }
       comment_sheet = Ballot.new(sheets).merge
       write_sheet(comment_sheet, options[:output], options[:schema_dir])
 
@@ -49,7 +49,7 @@ module Commenter
     option :output, type: :string, aliases: :o, desc: "Output file (default: stdout)"
     option :format, type: :string, default: "markdown", enum: %w[markdown yaml], desc: "Report format"
     def stats(input_yaml)
-      comment_sheet = CommentSheet.from_hash(YAML.load_file(input_yaml))
+      comment_sheet = CommentSheet.from_yaml(File.read(input_yaml))
 
       report = if options[:format] == "yaml"
                  BallotReport.counts(comment_sheet).to_yaml
@@ -72,7 +72,7 @@ module Commenter
     def fill(input_yaml)
       output_docx = options[:output]
 
-      comment_sheet = CommentSheet.from_hash(YAML.load_file(input_yaml))
+      comment_sheet = CommentSheet.from_yaml(File.read(input_yaml))
       comments = comment_sheet.comments
       raise "No comments found in YAML file" if comments.empty?
 
