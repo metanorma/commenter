@@ -72,23 +72,20 @@ module Commenter
     def fill(input_yaml)
       output_docx = options[:output]
 
-      # Load YAML data
-      data = YAML.load_file(input_yaml)
-
-      # Extract comments from the structure
-      comments = if data.is_a?(Hash)
-                   data["comments"] || data[:comments] || []
-                 else
-                   data || []
-                 end
-
+      comment_sheet = CommentSheet.from_hash(YAML.load_file(input_yaml))
+      comments = comment_sheet.comments
       raise "No comments found in YAML file" if comments.empty?
 
       # Use default template if none specified
       template_path = options[:template] || File.join(__dir__, "../../data/iso_comment_template_2012-03.docx")
 
-      # Fill the template
-      Filler.new.fill(template_path, output_docx, comments, options)
+      # Fill the template, including the sheet metadata in the page header
+      fill_options = options.merge(
+        date: comment_sheet.date,
+        document: comment_sheet.document,
+        project: comment_sheet.project
+      ).compact
+      Filler.new.fill(template_path, output_docx, comments, fill_options)
       puts "Filled template to #{output_docx}"
     end
 

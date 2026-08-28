@@ -124,12 +124,16 @@ Options:
 ==== Metadata (extraction limitation)
 
 WARNING: Due to a limitation in the underlying `docx` gem, metadata fields
-(Date, Document, Project) from the DOCX header cannot be automatically
-extracted. This is because the required functionality is not yet merged (see
-https://github.com/ruby-docx/docx/pull/73[docx gem PR #73]).
+(Date, Document, Project) cannot yet be automatically extracted from the DOCX
+header during import (see https://github.com/ruby-docx/docx/pull/73[docx gem
+PR #73]). Redline imports take them from the `--document` / `--stage` options;
+for template imports, populate the YAML fields manually.
 
-The generated YAML will have empty metadata fields that you can manually
-populate:
+The reverse direction works: `commenter fill` writes the sheet's
+`date`, `document`, and `project` values into the Date/Document/Project labels
+of the template's page header, so the filled comment sheet is complete.
+
+For template imports, populate the YAML metadata manually:
 
 [source,yaml]
 ----
@@ -141,9 +145,6 @@ document: ""       # Manually add: e.g., "ISO 80000-2:2019"
 project: ""        # Manually add: e.g., "Project name"
 comments:
 ----
-
-Alternatively, you can provide metadata during import using CLI options (planned
-for future release).
 
 
 ==== Example YAML output
@@ -237,7 +238,8 @@ file — the Markdown pastes directly into a GitHub issue or WG minutes.
 
 This gem contains a command-line utility to fill a DOCX template with comments
 from a YAML file. It generates a filled comment sheet that can be used for
-review and resolution tracking.
+review and resolution tracking. The sheet's `date`, `document`, and `project`
+metadata are written into the template's page header.
 
 The base template is the ISO comment sheet template located at
 `data/iso_comment_template_2012-03.docx`. You can also provide a custom
