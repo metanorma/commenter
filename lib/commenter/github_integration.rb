@@ -19,8 +19,7 @@ module Commenter
     end
 
     def create_issues_from_yaml(yaml_file, options = {})
-      data = YAML.load_file(yaml_file)
-      comment_sheet = CommentSheet.from_hash(data)
+      comment_sheet = CommentSheet.from_yaml(File.read(yaml_file))
 
       # Override stage if provided
       comment_sheet.stage = options[:stage] if options[:stage]
@@ -282,11 +281,8 @@ module Commenter
         comment = comment_sheet.comments.find { |c| c.id == result[:comment_id] }
         next unless comment
 
-        # Add GitHub information to the comment
-        comment.github[:issue_number] = result[:issue_number]
-        comment.github[:issue_url] = result[:issue_url]
-        comment.github[:status] = "open"
-        comment.github[:created_at] = Time.now.utc.iso8601
+        comment.record_github_issue(issue_number: result[:issue_number], issue_url: result[:issue_url],
+                                    status: "open", created_at: Time.now.utc.iso8601)
       end
 
       # Write updated YAML
@@ -304,8 +300,7 @@ module Commenter
     end
 
     def retrieve_observations_from_yaml(yaml_file, options = {})
-      data = YAML.load_file(yaml_file)
-      comment_sheet = CommentSheet.from_hash(data)
+      comment_sheet = CommentSheet.from_yaml(File.read(yaml_file))
 
       results = []
       comment_sheet.comments.each do |comment|
@@ -349,8 +344,8 @@ module Commenter
         if observation
           # Update comment with observation and current status
           comment.observations = observation
-          comment.github[:status] = issue.state
-          comment.github[:updated_at] = Time.now.utc.iso8601
+          comment.github.status = issue.state
+          comment.github.updated_at = Time.now.utc.iso8601
 
           {
             comment_id: comment.id,

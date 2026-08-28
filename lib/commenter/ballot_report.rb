@@ -12,7 +12,7 @@ module Commenter
     def status_for(comment)
       DispositionStatus.match(comment.observations) ||
         DispositionStatus.match(comment.resolution_status) ||
-        (comment.github[:status] == "open" ? :open : nil) ||
+        (comment.github&.status == "open" ? :open : nil) ||
         (comment.observations.to_s.strip.empty? && comment.resolution_status.to_s.strip.empty? ? :undecided : nil)
     end
 

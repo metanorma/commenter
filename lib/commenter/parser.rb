@@ -2,13 +2,12 @@
 
 require "docx"
 require "pathname"
-require_relative "comment_sheet"
-require_relative "comment"
-require_relative "parser/osd_xlsx_parser"
-require_relative "parser/track_change_docx_parser"
 
 module Commenter
   class Parser
+    autoload :OsdXlsxParser, "commenter/parser/osd_xlsx_parser"
+    autoload :TrackChangeDocxParser, "commenter/parser/track_change_docx_parser"
+
     def parse(input_path, options = {})
       format = detect_format(input_path, options)
 
@@ -90,7 +89,7 @@ module Commenter
           clause: presence(cells[2]),
           element: presence(cells[3])
         },
-        type: CommentType.code(cells[4]),
+        type: CommentType.full_name(cells[4]),
         comments: cells[5] || "",
         proposed_change: presence(cells[6]),
         user_name: cells[0].to_s.strip

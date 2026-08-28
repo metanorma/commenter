@@ -9,7 +9,7 @@ RSpec.describe Commenter::Comment do
         id: "US-001",
         body: "US",
         locality: { clause: "5.1", element: "Table 1", line_number: "42" },
-        type: "te",
+        type: "technical",
         comments: "Test comment",
         proposed_change: "Test change",
         observations: "Test observations"
@@ -26,6 +26,19 @@ RSpec.describe Commenter::Comment do
       expect(comment.comments).to eq("Test comment")
       expect(comment.proposed_change).to eq("Test change")
       expect(comment.observations).to eq("Test observations")
+    end
+
+    it "expands short type codes when loaded from YAML" do
+      yaml = <<~YAML
+        ---
+        id: US-009
+        type: te
+      YAML
+
+      comment = described_class.from_yaml(yaml)
+
+      expect(comment.id).to eq("US-009")
+      expect(comment.type).to eq("technical")
     end
 
     it "handles string keys in attributes" do
@@ -162,7 +175,7 @@ RSpec.describe Commenter::Comment do
         id: "US-001",
         body: "US",
         locality: { clause: "5.1" },
-        type: "te",
+        type: "technical",
         comments: "Test",
         proposed_change: "Change",
         observations: "Obs"
@@ -170,13 +183,13 @@ RSpec.describe Commenter::Comment do
 
       hash = comment.to_h
 
-      expect(hash[:id]).to eq("US-001")
-      expect(hash[:body]).to eq("US")
-      expect(hash[:locality][:clause]).to eq("5.1")
-      expect(hash[:type]).to eq("technical")
-      expect(hash[:comments]).to eq("Test")
-      expect(hash[:proposed_change]).to eq("Change")
-      expect(hash[:observations]).to eq("Obs")
+      expect(hash["id"]).to eq("US-001")
+      expect(hash["body"]).to eq("US")
+      expect(hash["locality"]["clause"]).to eq("5.1")
+      expect(hash["type"]).to eq("technical")
+      expect(hash["comments"]).to eq("Test")
+      expect(hash["proposed_change"]).to eq("Change")
+      expect(hash["observations"]).to eq("Obs")
     end
   end
 

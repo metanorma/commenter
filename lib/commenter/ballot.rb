@@ -16,7 +16,7 @@ module Commenter
 
     def merge
       CommentSheet.new(
-        version: first_sheet&.version,
+        version: first_sheet&.version || "2012-03",
         date: first_value(:date),
         document: first_value(:document),
         project: first_value(:project),

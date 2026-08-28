@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 require "roo"
-require_relative "../comment_sheet"
-require_relative "../comment"
 
 module Commenter
   class Parser
@@ -201,7 +199,7 @@ module Commenter
             clause: clause.empty? ? nil : clause,
             element: clause_title.empty? ? nil : clause_title
           }.compact,
-          type: CommentType.code(cell_value_str(row, col_map[:comment_type]).to_s),
+          type: CommentType.full_name(cell_value_str(row, col_map[:comment_type])),
           comments: comment_text.to_s.strip,
           proposed_change: cell_value_str(row, col_map[:proposed_change]) ||
             cell_value_str(row, col_map[:proposal_on_text])

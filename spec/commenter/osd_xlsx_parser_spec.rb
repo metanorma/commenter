@@ -27,7 +27,8 @@ RSpec.describe Commenter::Parser::OsdXlsxParser do
 
         expect(comment.id).to eq("1")
         expect(comment.body).to eq("John Doe")
-        expect(comment.locality).to eq({ clause: "5.2.1", element: "Requirements" })
+        expect(comment.locality.clause).to eq("5.2.1")
+        expect(comment.locality.element).to eq("Requirements")
         expect(comment.comments).to eq("The values in Table 3 are inconsistent.")
         expect(comment.proposed_change).to eq("Correct the values in column 2.")
         expect(comment.comment_type).to eq("Editorial")
@@ -62,7 +63,7 @@ RSpec.describe Commenter::Parser::OsdXlsxParser do
         comments = described_class.new.parse(path).comments
 
         expect(comments.length).to eq(2)
-        expect(comments.last.locality).to eq({})
+        expect(comments.last.locality.clause).to be_nil
         expect(comments.last.proposed_change).to be_nil
       end
     end
