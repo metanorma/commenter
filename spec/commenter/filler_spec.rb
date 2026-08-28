@@ -13,13 +13,13 @@ RSpec.describe Commenter::Filler do
 
   def header_xml(output_path)
     Zip::File.open(output_path) do |zip|
-      zip.entries.find { |entry| entry.name == "word/header2.xml" }.get_input_stream.read
+      zip.entries.find { |entry| entry.name == "word/header2.xml" }.get_input_stream(&:read)
     end
   end
 
   def body_xml(output_path)
     Zip::File.open(output_path) do |zip|
-      zip.entries.find { |entry| entry.name == "word/document.xml" }.get_input_stream.read
+      zip.entries.find { |entry| entry.name == "word/document.xml" }.get_input_stream(&:read)
     end
   end
 

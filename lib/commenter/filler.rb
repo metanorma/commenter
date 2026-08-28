@@ -73,7 +73,10 @@ module Commenter
       buffer = Zip::OutputStream.write_buffer do |out|
         Zip::File.open(output_path) do |zip|
           zip.entries.each do |entry|
-            content = entry.get_input_stream.read
+            # Block form: the entry stream is closed eagerly, otherwise its
+            # handle keeps the file locked on Windows and the binwrite below
+            # fails with EACCES.
+            content = entry.get_input_stream(&:read)
             out.put_next_entry(entry.name)
             out.write(patch_header(entry.name, content, metadata))
           end
