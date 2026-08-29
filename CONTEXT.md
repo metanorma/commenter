@@ -23,6 +23,9 @@ keep this current when concepts sharpen.
   from ISO/CS editors; also carries reviewer remark threads.
 - **OSD** — ISO Online Standards Development; its XLSX comment exports come
   in resolved and unresolved variants.
+- **Stage Comparison** — how the comment set evolved between two ballots
+  (new, withdrawn, repeated, revised; resolved = disposition recorded).
+  `BallotDiff`.
 - **GitHub Sync** — reconciliation of the comment YAML with GitHub issues
   (YAML as source of truth): create missing, refresh content per conflict
   policy, close dispositioned issues. `GitHubSync`.
