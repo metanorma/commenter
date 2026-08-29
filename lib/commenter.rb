@@ -13,6 +13,7 @@ module Commenter
   autoload :DispositionStatus, "commenter/disposition_status"
   autoload :Ballot, "commenter/ballot"
   autoload :BallotReport, "commenter/ballot_report"
+  autoload :BallotDiff, "commenter/ballot_diff"
   autoload :Comment, "commenter/comment"
   autoload :CommentSheet, "commenter/comment_sheet"
   autoload :GitHubSession, "commenter/github_session"

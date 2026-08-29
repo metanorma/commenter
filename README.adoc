@@ -234,6 +234,20 @@ issue counts as *open*; no disposition at all counts as *undecided*). Use
 `--format yaml` for machine-readable output, and `-o report.md` to write to a
 file — the Markdown pastes directly into a GitHub issue or WG minutes.
 
+=== Comparing ballots between stages
+
+The same comment ID (`DE-001`) recurs at every ballot stage; comparing two
+ballot sheets shows how the set evolved between CD and DIS:
+
+[source,shell]
+----
+commenter diff cd-ballot.yaml dis-ballot.yaml
+----
+
+Comments are matched by ID and classified as new, withdrawn, repeated
+(unchanged text), or revised; a comment whose later version carries a
+disposition counts as resolved. Markdown (default) or `--format yaml`.
+
 === Filling DOCX templates from YAML
 
 This gem contains a command-line utility to fill a DOCX template with comments

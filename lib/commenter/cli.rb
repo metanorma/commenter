@@ -65,6 +65,27 @@ module Commenter
       end
     end
 
+    desc "diff BEFORE.yaml AFTER.yaml", "Compare two ballots (e.g. CD vs DIS) by comment ID"
+    option :output, type: :string, aliases: :o, desc: "Output file (default: stdout)"
+    option :format, type: :string, default: "markdown", enum: %w[markdown yaml], desc: "Report format"
+    def diff(before_yaml, after_yaml)
+      before_sheet = CommentSheet.from_yaml(File.read(before_yaml))
+      after_sheet = CommentSheet.from_yaml(File.read(after_yaml))
+
+      report = if options[:format] == "yaml"
+                 BallotDiff.diff(before_sheet, after_sheet).to_yaml
+               else
+                 BallotDiff.to_markdown(before_sheet, after_sheet)
+               end
+
+      if options[:output]
+        File.write(options[:output], report)
+        puts "Wrote comparison to #{options[:output]}"
+      else
+        puts report
+      end
+    end
+
     desc "fill INPUT.yaml", "Fill DOCX template from YAML comments"
     option :output, type: :string, aliases: :o, default: "filled_comments.docx", desc: "Output DOCX file"
     option :template, type: :string, aliases: :t, desc: "Custom template file"
