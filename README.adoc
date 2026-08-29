@@ -464,6 +464,35 @@ The `unique_id` is available as a variable in title and body templates:
 
 This renders to: `[DIS] GB-001: Clause 5.1 summary (ISO/DIS 2533)`
 
+==== Synchronizing with GitHub issues
+
+`github-create` is one-shot: it creates missing issues and skips existing
+ones. `github-sync` keeps the YAML and the issues in step, treating the YAML
+as the source of truth:
+
+[source,shell]
+----
+commenter github-sync --config github_config.yaml comments.yaml
+----
+
+For each comment it creates a missing issue, refreshes issue content from
+the YAML, and reconciles issue state. Two policies govern the parts that
+can collide:
+
+`--conflict yaml` (default):: Re-render the issue title and body from the
+YAML when they differ (YAML wins).
+`--conflict github`:: Leave differing issue content untouched (edits made
+on GitHub win).
+`--conflict skip`:: Take no action on differing content; the result is
+reported as a conflict.
+
+By default an open issue whose comment has a recorded disposition
+(`observations`) is closed — that is what keeps the
+`github-retrieve` round-trip working, since observations are retrieved from
+closed issues. Disable with `--no-close-on-disposition`.
+
+The milestone is resolved once per run and reused for every issue.
+
 ==== Retrieving observations from GitHub issues
 
 ===== Basic usage

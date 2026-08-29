@@ -160,6 +160,66 @@ module Commenter
       exit 1
     end
 
+    desc "github-sync INPUT.yaml", "Synchronize comments with GitHub issues (YAML is the source of truth)"
+    option :config, type: :string, aliases: :c, required: true, desc: "GitHub configuration YAML file"
+    option :output, type: :string, aliases: :o, desc: "Output YAML file (default: update original)"
+    option :stage, type: :string, desc: "Override approval stage (WD/CD/DIS/FDIS/PRF/PUB)"
+    option :milestone, type: :string, desc: "Override milestone name or number"
+    option :assignee, type: :string, desc: "Override assignee GitHub handle"
+    option :title_template, type: :string, desc: "Custom title template"
+    option :body_template, type: :string, desc: "Custom body template"
+    option :dry_run, type: :boolean, desc: "Preview sync actions without applying them"
+    option :conflict, type: :string, default: "yaml", enum: %w[yaml github skip],
+                      desc: "Conflict policy: yaml re-renders the issue, " \
+                            "github keeps the issue content, skip reports and leaves it"
+    option :close_on_disposition, type: :boolean, default: true,
+                                  desc: "Close open issues whose comment has a recorded " \
+                                        "disposition"
+    def github_sync(input_yaml)
+      sync = GitHubSync.new(options[:config], options[:title_template], options[:body_template])
+
+      sync_options = {
+        stage: options[:stage],
+        milestone: options[:milestone],
+        assignee: options[:assignee],
+        conflict: options[:conflict],
+        close_on_disposition: options[:close_on_disposition],
+        dry_run: options[:dry_run],
+        output: options[:output]
+      }.compact
+      results = sync.sync(input_yaml, sync_options)
+
+      if options[:dry_run]
+        puts "DRY RUN - Planned sync actions:"
+        puts "=" * 50
+        results.each do |result|
+          issue = result[:issue_number] ? "issue ##{result[:issue_number]}" : "no issue yet"
+          puts "#{result[:comment_id]} (#{issue}): #{result[:actions].join(", ")}"
+        end
+        puts "-" * 30
+        puts "Based on the issue state last recorded in the YAML; run without --dry-run for a live pass."
+      else
+        puts "GitHub sync results:"
+        puts "=" * 40
+        results.each do |result|
+          case result[:status]
+          when :created then puts "\u2713 #{result[:comment_id]}: Created issue ##{result[:issue_number]} " \
+                                   "(#{result[:issue_url]})"
+          when :updated then puts "\u21bb #{result[:comment_id]}: Updated issue ##{result[:issue_number]} " \
+                                   "(#{result[:actions].join(", ")})"
+          when :closed then puts "\u2713 #{result[:comment_id]}: Closed issue ##{result[:issue_number]} (disposition recorded)"
+          when :updated_and_closed then puts "\u21bb\u2713 #{result[:comment_id]}: Updated and closed issue ##{result[:issue_number]}"
+          when :unchanged then puts "- #{result[:comment_id]}: Issue ##{result[:issue_number]} in sync"
+          when :error then puts "\u2717 #{result[:comment_id]}: Error - #{result[:message]}"
+          end
+        end
+        puts "Updated YAML file: #{options[:output] || input_yaml}"
+      end
+    rescue StandardError => e
+      puts "Error: #{e.message}"
+      exit 1
+    end
+
     desc "github-retrieve INPUT.yaml", "Retrieve observations from GitHub issues"
     option :config, type: :string, aliases: :c, required: true, desc: "GitHub configuration YAML file"
     option :output, type: :string, aliases: :o, desc: "Output YAML file (default: update original)"

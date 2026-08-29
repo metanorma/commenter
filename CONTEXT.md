@@ -23,5 +23,8 @@ keep this current when concepts sharpen.
   from ISO/CS editors; also carries reviewer remark threads.
 - **OSD** — ISO Online Standards Development; its XLSX comment exports come
   in resolved and unresolved variants.
+- **GitHub Sync** — reconciliation of the comment YAML with GitHub issues
+  (YAML as source of truth): create missing, refresh content per conflict
+  policy, close dispositioned issues. `GitHubSync`.
 - **Unique ID** — stage-aware identity of a comment's GitHub issue
   (`[DIS] GB-001` by default), used for duplicate detection.

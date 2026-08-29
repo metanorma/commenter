@@ -16,3 +16,7 @@ Metrics/ModuleLength:
 Metrics/BlockLength:
   Exclude:
     - "spec/**/*"
+
+Metrics/ClassLength:
+  Exclude:
+    - "lib/commenter/cli.rb"
