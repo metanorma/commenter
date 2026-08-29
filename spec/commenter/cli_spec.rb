@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "zip"
 require "commenter/cli"
 require_relative "../support/osd_fixtures"
 require_relative "../support/xlsx_builder"
@@ -70,6 +71,32 @@ RSpec.describe Commenter::Cli do
                        "| DE | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |",
                        "| US | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |"
                      )).to_stdout
+      end
+    end
+  end
+end
+
+RSpec.describe Commenter::Cli do
+  describe "#export" do
+    it "retrieves observations and writes the disposition DOCX" do
+      Dir.mktmpdir do |dir|
+        config = File.join(dir, "config.yaml")
+        File.write(config, { "github" => { "repository" => "t/t", "token" => "dummy" } }.to_yaml)
+        input = File.join(dir, "comments.yaml")
+        File.write(input, {
+          "version" => "2012-03", "date" => "2026-08-29", "document" => "ISO 2533:2026",
+          "comments" => [{ "id" => "DE-001", "body" => "DE", "comments" => "Remark",
+                           "observations" => "Accepted." }]
+        }.to_yaml)
+        output = File.join(dir, "disposition.docx")
+
+        described_class.start(["export", input, "--config", config, "--output", output])
+
+        expect(File).to exist(output)
+        header = Zip::File.open(output) do |zip|
+          zip.entries.find { |e| e.name == "word/header2.xml" }.get_input_stream(&:read)
+        end
+        expect(header).to include("Date: 2026-08-29")
       end
     end
   end
