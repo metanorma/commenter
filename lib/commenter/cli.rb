@@ -110,6 +110,27 @@ module Commenter
       puts "Filled template to #{output_docx}"
     end
 
+    desc "export INPUT.yaml", "Retrieve observations from GitHub issues and write the final disposition DOCX"
+    option :config, type: :string, aliases: :c, required: true, desc: "GitHub configuration YAML file"
+    option :output, type: :string, aliases: :o, default: "disposition_comments.docx", desc: "Output DOCX file"
+    option :template, type: :string, aliases: :t, desc: "Custom template file"
+    option :shading, type: :boolean, aliases: :s, desc: "Apply status-based shading"
+    option :include_open, type: :boolean, desc: "Include observations from open issues (not recommended)"
+    def export(input_yaml)
+      retriever = GitHubIssueRetriever.new(options[:config])
+      retriever.retrieve_observations_from_yaml(input_yaml, include_open: options[:include_open])
+
+      comment_sheet = CommentSheet.from_yaml(File.read(input_yaml))
+      raise "No comments found in YAML file" if comment_sheet.comments.empty?
+
+      template_path = options[:template] || File.join(__dir__, "../../data/iso_comment_template_2012-03.docx")
+      fill_options = options.merge(
+        date: comment_sheet.date, document: comment_sheet.document, project: comment_sheet.project
+      ).compact
+      Filler.new.fill(template_path, options[:output], comment_sheet.comments, fill_options)
+      puts "Retrieved observations and wrote disposition sheet to #{options[:output]}"
+    end
+
     desc "github-create INPUT.yaml", "Create GitHub issues from comments"
     option :config, type: :string, aliases: :c, required: true, desc: "GitHub configuration YAML file"
     option :output, type: :string, aliases: :o, desc: "Output YAML file (default: update original)"

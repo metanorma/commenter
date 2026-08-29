@@ -248,6 +248,19 @@ Comments are matched by ID and classified as new, withdrawn, repeated
 (unchanged text), or revised; a comment whose later version carries a
 disposition counts as resolved. Markdown (default) or `--format yaml`.
 
+=== Exporting the final disposition document
+
+One command for the ballot's last step — pull the observations recorded in
+GitHub issues and write the completed comment sheet:
+
+[source,shell]
+----
+commenter export comments.yaml --config github_config.yaml -o disposition.docx --shading
+----
+
+Retrieves observations from closed issues (updating the YAML), then fills the
+template with sheet metadata, comments, observations, and status shading.
+
 === Filling DOCX templates from YAML
 
 This gem contains a command-line utility to fill a DOCX template with comments

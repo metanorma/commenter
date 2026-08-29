@@ -31,3 +31,5 @@ keep this current when concepts sharpen.
   policy, close dispositioned issues. `GitHubSync`.
 - **Unique ID** — stage-aware identity of a comment's GitHub issue
   (`[DIS] GB-001` by default), used for duplicate detection.
+- **Out of scope** — CEN/CENELEC comment exports (decided 2026-08-29: we
+  don't have CEN; do not propose a CEN adapter again).
