@@ -250,8 +250,12 @@ module Commenter
         puts "[GitHubIssueCreator] Using milestone number: #{milestone_config["number"]}"
         milestone_config["number"]
       elsif milestone_config["name"]
-        puts "[GitHubIssueCreator] Using milestone name: #{milestone_config["name"]}"
-        resolve_milestone_by_name_or_number(milestone_config["name"])
+        # Resolved once per run and memoized: resolving per comment caused
+        # duplicated milestone fetches (see 3a06c3d).
+        @milestone_number ||= begin
+          puts "[GitHubIssueCreator] Using milestone name: #{milestone_config["name"]}"
+          resolve_milestone_by_name_or_number(milestone_config["name"])
+        end
       end
     end
 
@@ -276,13 +280,14 @@ module Commenter
     def update_yaml_with_github_info(yaml_file, comment_sheet, results, options)
       # Update comments with GitHub information
       results.each do |result|
-        next unless result[:status] == :created
+        next unless result[:issue_number]
 
         comment = comment_sheet.comments.find { |c| c.id == result[:comment_id] }
         next unless comment
 
         comment.record_github_issue(issue_number: result[:issue_number], issue_url: result[:issue_url],
-                                    status: "open", created_at: Time.now.utc.iso8601)
+                                    status: result[:status] == :created ? "open" : comment.github_status,
+                                    created_at: comment.github_created_at || Time.now.utc.iso8601)
       end
 
       # Write updated YAML
