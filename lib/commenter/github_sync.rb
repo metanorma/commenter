@@ -61,7 +61,7 @@ module Commenter
     end
 
     def reconcile(comment, comment_sheet, options)
-      issue = find_existing_issue(comment, comment_sheet)
+      issue = recorded_issue(comment, comment_sheet) || find_existing_issue(comment, comment_sheet)
       return create_issue(comment, comment_sheet, options) unless issue
 
       title = @title_template.render(template_variables(comment, comment_sheet))

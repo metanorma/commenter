@@ -4,6 +4,68 @@ require "spec_helper"
 require "tempfile"
 require "yaml"
 
+FakeIssue = Struct.new(:number, :title, :html_url, :state, :created_at, keyword_init: true)
+FakeSearchResults = Struct.new(:items, keyword_init: true)
+FakeMilestone = Struct.new(:number, :title, keyword_init: true)
+
+# Real stand-in for the Octokit surface github-create uses: a seeded issue
+# store plus counters, so duplicate-prevention and retry behavior is
+# exercised against an object with the same protocol as Octokit::Client.
+class FakeGitHubClient
+  attr_accessor :rate_limit_failures, :search_error
+  attr_reader :created
+
+  def initialize(existing_issues = [])
+    @issues = {}
+    existing_issues.each { |issue| @issues[issue.number] = issue }
+    @next_number = @issues.keys.max.to_i
+    @created = []
+    @rate_limit_failures = 0
+  end
+
+  def issue(_repo, number)
+    @issues.fetch(number) { raise Octokit::NotFound }
+  end
+
+  def search_issues(query)
+    raise search_error if search_error
+
+    unique_id = query[/in:title "(.+)"\z/, 1]
+    FakeSearchResults.new(items: @issues.values.select { |i| i.title.include?(unique_id) })
+  end
+
+  def milestones(_repo, _options = {})
+    [FakeMilestone.new(number: 1, title: "Test Milestone")]
+  end
+
+  def create_issue(_repo, title, _body, _options = {})
+    if @rate_limit_failures.positive?
+      @rate_limit_failures -= 1
+      rate_limited = Octokit::TooManyRequests.new(rate_limited_response)
+      raise rate_limited
+    end
+
+    @next_number += 1
+    issue = FakeIssue.new(number: @next_number, title: title,
+                          html_url: "https://example.test/issues/#{@next_number}",
+                          state: "open", created_at: "2026-09-07T00:00:00Z")
+    @issues[issue.number] = issue
+    @created << issue
+    issue
+  end
+
+  private
+
+  # Mirrors the response hash Octokit builds from a real 403.
+  def rate_limited_response
+    {
+      status: 403,
+      body: "You have exceeded a secondary rate limit and have been " \
+            "temporarily blocked from content creation."
+    }
+  end
+end
+
 RSpec.describe Commenter::GitHubIssueCreator do
   let(:config_data) do
     {
@@ -130,6 +192,148 @@ RSpec.describe Commenter::GitHubIssueCreator do
 
       result = results.first
       expect(result[:labels]).not_to include("draft-international-standard")
+    end
+
+    context "with an injected client, without dry run" do
+      before do
+        stub_const("Commenter::GitHubIssueCreator::THROTTLE_SECONDS", 0)
+        stub_const("Commenter::GitHubIssueCreator::RATE_LIMIT_RETRY_DELAY", 0)
+      end
+
+      def write_sheet(comments)
+        data = yaml_data
+        data["comments"] = comments
+        file = Tempfile.new(["comments", ".yaml"])
+        file.write(data.to_yaml)
+        file.close
+        file
+      end
+
+      def seeded_issue(number, title)
+        FakeIssue.new(number: number, title: title,
+                      html_url: "https://example.test/issues/#{number}",
+                      state: "open", created_at: "2026-09-06T00:00:00Z")
+      end
+
+      it "skips creation when the YAML records a matching issue" do
+        client = FakeGitHubClient.new([seeded_issue(7, "[DIS] US-001: already posted")])
+        sheet = write_sheet([yaml_data["comments"].first.merge("github" => { "issue_number" => 7 })])
+        creator = described_class.new(config_file.path, title_template_file.path,
+                                      body_template_file.path, client: client)
+
+        results = creator.create_issues_from_yaml(sheet.path)
+
+        expect(results.first[:status]).to eq(:skipped)
+        expect(results.first[:issue_number]).to eq(7)
+        expect(results.first[:issue_url]).to eq("https://example.test/issues/7")
+        expect(client.created).to be_empty
+        expect(Commenter::CommentSheet.from_yaml(File.read(sheet.path)).comments.first.github_issue_number).to eq(7)
+        sheet.unlink
+      end
+
+      it "falls back to search when the recorded issue no longer exists" do
+        client = FakeGitHubClient.new([seeded_issue(5, "[DIS] US-001: posted earlier")])
+        sheet = write_sheet([yaml_data["comments"].first.merge("github" => { "issue_number" => 99 })])
+        creator = described_class.new(config_file.path, title_template_file.path,
+                                      body_template_file.path, client: client)
+
+        results = creator.create_issues_from_yaml(sheet.path)
+
+        expect(results.first[:status]).to eq(:skipped)
+        expect(results.first[:issue_number]).to eq(5)
+        expect(client.created).to be_empty
+        expect(Commenter::CommentSheet.from_yaml(File.read(sheet.path)).comments.first.github_issue_number).to eq(5)
+        sheet.unlink
+      end
+
+      it "falls back to search when the recorded issue title does not match the stage" do
+        client = FakeGitHubClient.new([seeded_issue(7, "[WD] US-001: different stage"),
+                                       seeded_issue(5, "[DIS] US-001: posted earlier")])
+        sheet = write_sheet([yaml_data["comments"].first.merge("github" => { "issue_number" => 7 })])
+        creator = described_class.new(config_file.path, title_template_file.path,
+                                      body_template_file.path, client: client)
+
+        results = creator.create_issues_from_yaml(sheet.path)
+
+        expect(results.first[:status]).to eq(:skipped)
+        expect(results.first[:issue_number]).to eq(5)
+        expect(client.created).to be_empty
+        sheet.unlink
+      end
+
+      it "records the issue in the YAML when skipping via title search" do
+        client = FakeGitHubClient.new([seeded_issue(5, "[DIS] US-001: posted earlier")])
+        sheet = write_sheet(yaml_data["comments"])
+        creator = described_class.new(config_file.path, title_template_file.path,
+                                      body_template_file.path, client: client)
+
+        results = creator.create_issues_from_yaml(sheet.path)
+
+        expect(results.first[:status]).to eq(:skipped)
+        expect(Commenter::CommentSheet.from_yaml(File.read(sheet.path)).comments.first.github_issue_number).to eq(5)
+        sheet.unlink
+      end
+
+      it "creates and records the issue when nothing exists" do
+        client = FakeGitHubClient.new
+        sheet = write_sheet(yaml_data["comments"])
+        creator = described_class.new(config_file.path, title_template_file.path,
+                                      body_template_file.path, client: client)
+
+        results = creator.create_issues_from_yaml(sheet.path)
+
+        expect(results.first[:status]).to eq(:created)
+        expect(results.first[:issue_number]).to eq(1)
+        expect(client.created.length).to eq(1)
+        expect(Commenter::CommentSheet.from_yaml(File.read(sheet.path)).comments.first.github_issue_number).to eq(1)
+        sheet.unlink
+      end
+
+      it "retries creation after a rate limit" do
+        client = FakeGitHubClient.new
+        client.rate_limit_failures = 1
+        sheet = write_sheet(yaml_data["comments"])
+        creator = described_class.new(config_file.path, title_template_file.path,
+                                      body_template_file.path, client: client)
+
+        results = creator.create_issues_from_yaml(sheet.path)
+
+        expect(results.first[:status]).to eq(:created)
+        expect(client.created.length).to eq(1)
+        sheet.unlink
+      end
+
+      it "reports an error when rate limiting persists" do
+        client = FakeGitHubClient.new
+        client.rate_limit_failures = 99
+        sheet = write_sheet(yaml_data["comments"])
+        creator = described_class.new(config_file.path, title_template_file.path,
+                                      body_template_file.path, client: client)
+
+        results = creator.create_issues_from_yaml(sheet.path)
+
+        expect(results.first[:status]).to eq(:error)
+        expect(client.created).to be_empty
+        sheet.unlink
+      end
+
+      it "reports an error instead of creating when the title search fails" do
+        client = FakeGitHubClient.new
+        client.search_error = Octokit::Forbidden.new(
+          status: 403,
+          body: "You have exceeded a secondary rate limit and have been " \
+                "temporarily blocked from content creation."
+        )
+        sheet = write_sheet(yaml_data["comments"])
+        creator = described_class.new(config_file.path, title_template_file.path,
+                                      body_template_file.path, client: client)
+
+        results = creator.create_issues_from_yaml(sheet.path)
+
+        expect(results.first[:status]).to eq(:error)
+        expect(client.created).to be_empty
+        sheet.unlink
+      end
     end
   end
 
