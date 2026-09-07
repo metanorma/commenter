@@ -7,10 +7,14 @@ require "dotenv/load"
 
 module Commenter
   class GitHubIssueCreator
-    def initialize(config_path, title_template_path = nil, body_template_path = nil)
+    THROTTLE_SECONDS = 1
+    RATE_LIMIT_RETRY_DELAY = 60
+    RATE_LIMIT_MAX_RETRIES = 3
+
+    def initialize(config_path, title_template_path = nil, body_template_path = nil, client: nil)
       @session = GitHubSession.new(config_path)
       @config = @session.config
-      @github_client = @session.client
+      @github_client = client || @session.client
       @repo = @session.repo
 
       @title_template = load_liquid_template(title_template_path || default_title_template_path)
@@ -129,30 +133,36 @@ module Commenter
 
     def create_issue(comment, comment_sheet, options = {})
       puts "[GitHubIssueCreator] Creating issue for comment ID: #{comment.id}"
-      # Check if issue already exists (stage-aware)
-      existing_issue = find_existing_issue(comment, comment_sheet)
-      if existing_issue
-        puts "[GitHubIssueCreator] Issue already exists for comment ID: #{comment.id} at stage #{comment_sheet.stage}, skipping creation."
-        return {
-          comment_id: comment.id,
-          status: :skipped,
-          message: "Issue already exists",
-          issue_url: existing_issue.html_url
-        }
-      end
-
-      title = @title_template.render(template_variables(comment, comment_sheet))
-      body = @body_template.render(template_variables(comment, comment_sheet))
-
-      issue_options = {
-        labels: determine_labels(comment, comment_sheet),
-        assignees: determine_assignees(comment, comment_sheet, options),
-        milestone: determine_milestone(comment, comment_sheet, options)
-      }.compact
-
-      puts "[GitHubIssueCreator] Creating issue with title: #{title}"
       begin
-        issue = @github_client.create_issue(@repo, title, body, issue_options)
+        # The recorded issue number is verified with a consistent GET; the
+        # title search alone cannot see issues GitHub has not indexed yet.
+        existing_issue = recorded_issue(comment, comment_sheet) ||
+                         find_existing_issue(comment, comment_sheet)
+        if existing_issue
+          puts "[GitHubIssueCreator] Issue already exists for comment ID: #{comment.id} " \
+               "at stage #{comment_sheet.stage}, skipping creation."
+          return {
+            comment_id: comment.id,
+            status: :skipped,
+            message: "Issue already exists",
+            issue_number: existing_issue.number,
+            issue_url: existing_issue.html_url,
+            issue_status: existing_issue.state,
+            issue_created_at: existing_issue.created_at
+          }
+        end
+
+        title = @title_template.render(template_variables(comment, comment_sheet))
+        body = @body_template.render(template_variables(comment, comment_sheet))
+
+        issue_options = {
+          labels: determine_labels(comment, comment_sheet),
+          assignees: determine_assignees(comment, comment_sheet, options),
+          milestone: determine_milestone(comment, comment_sheet, options)
+        }.compact
+
+        puts "[GitHubIssueCreator] Creating issue with title: #{title}"
+        issue = create_issue_with_retry(title, body, issue_options)
         puts "[GitHubIssueCreator] Issue created successfully: #{issue.html_url}"
         {
           comment_id: comment.id,
@@ -168,6 +178,53 @@ module Commenter
           message: e.message
         }
       end
+    end
+
+    def recorded_issue(comment, comment_sheet)
+      return nil unless comment.has_github_issue?
+
+      number = comment.github_issue_number
+      puts "[GitHubIssueCreator] Verifying recorded issue ##{number} for comment ID: #{comment.id}"
+      issue = @github_client.issue(@repo, number)
+      if issue.title.include?(render_unique_id(comment, comment_sheet))
+        issue
+      else
+        puts "[GitHubIssueCreator] Recorded issue ##{number} does not match, falling back to title search."
+        nil
+      end
+    rescue Octokit::NotFound
+      puts "[GitHubIssueCreator] Recorded issue ##{number} no longer exists, falling back to title search."
+      nil
+    end
+
+    def create_issue_with_retry(title, body, issue_options)
+      attempts = 0
+      begin
+        attempts += 1
+        issue = @github_client.create_issue(@repo, title, body, issue_options)
+        sleep(THROTTLE_SECONDS) if THROTTLE_SECONDS.positive?
+        issue
+      rescue Octokit::TooManyRequests, Octokit::Forbidden => e
+        delay = rate_limit_retry_delay(e)
+        if delay && attempts < RATE_LIMIT_MAX_RETRIES
+          puts "[GitHubIssueCreator] Rate limited (attempt #{attempts}/#{RATE_LIMIT_MAX_RETRIES}), retrying in #{delay}s: #{e.message}"
+          sleep(delay)
+          retry
+        end
+        raise
+      end
+    end
+
+    def rate_limit_retry_delay(error)
+      headers = error.response_headers
+      retry_after = headers && (headers[:retry_after] || headers["retry-after"])
+      return retry_after.to_i if retry_after.to_i.positive?
+
+      return RATE_LIMIT_RETRY_DELAY if error.is_a?(Octokit::TooManyRequests)
+
+      # Secondary ("abuse") rate limits are a 403 whose body names them; a
+      # permissions 403 must not be retried.
+      RATE_LIMIT_RETRY_DELAY if error.message.to_s.include?("secondary rate limit")
     end
 
     def preview_issue(comment, comment_sheet)
@@ -195,8 +252,6 @@ module Commenter
       query = "repo:#{@repo} in:title \"#{unique_id}\""
       results = @github_client.search_issues(query)
       results.items.first
-    rescue Octokit::Error
-      nil
     end
 
     def determine_labels(comment, comment_sheet)
@@ -285,9 +340,12 @@ module Commenter
         comment = comment_sheet.comments.find { |c| c.id == result[:comment_id] }
         next unless comment
 
+        created_at = comment.github_created_at || result[:issue_created_at] || Time.now.utc.iso8601
+        created_at = created_at.iso8601 if created_at.is_a?(Time)
+
         comment.record_github_issue(issue_number: result[:issue_number], issue_url: result[:issue_url],
-                                    status: result[:status] == :created ? "open" : comment.github_status,
-                                    created_at: comment.github_created_at || Time.now.utc.iso8601)
+                                    status: result[:issue_status] || (result[:status] == :created ? "open" : comment.github_status),
+                                    created_at: created_at)
       end
 
       # Write updated YAML

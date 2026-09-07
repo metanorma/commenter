@@ -157,46 +157,8 @@ module Commenter
 
       results = creator.create_issues_from_yaml(input_yaml, github_options)
 
-      if options[:dry_run]
-        puts "DRY RUN - Preview of issues to be created:"
-        puts "=" * 50
-        results.each do |result|
-          puts "\nComment ID: #{result[:comment_id]}"
-          puts "Title: #{result[:title]}"
-          puts "Labels: #{result[:labels].join(", ")}" if result[:labels]&.any?
-          puts "Assignees: #{result[:assignees].join(", ")}" if result[:assignees]&.any?
-          puts "Milestone: #{result[:milestone]}" if result[:milestone]
-          puts "\nBody preview (first 200 chars):"
-          puts result[:body][0...200] + (result[:body].length > 200 ? "..." : "")
-          puts "-" * 30
-        end
-      else
-        puts "GitHub issue creation results:"
-        puts "=" * 40
-
-        created_count = 0
-        skipped_count = 0
-        error_count = 0
-
-        results.each do |result|
-          case result[:status]
-          when :created
-            created_count += 1
-            puts "✓ #{result[:comment_id]}: Created issue ##{result[:issue_number]}"
-            puts "  URL: #{result[:issue_url]}"
-          when :skipped
-            skipped_count += 1
-            puts "- #{result[:comment_id]}: Skipped (#{result[:message]})"
-            puts "  URL: #{result[:issue_url]}" if result[:issue_url]
-          when :error
-            error_count += 1
-            puts "✗ #{result[:comment_id]}: Error - #{result[:message]}"
-          end
-        end
-
-        puts "\nSummary:"
-        puts "Created: #{created_count}, Skipped: #{skipped_count}, Errors: #{error_count}"
-      end
+      error_count = report_issue_results(results, options[:dry_run])
+      exit 1 if error_count.to_i.positive?
     rescue StandardError => e
       puts "Error: #{e.message}"
       exit 1
@@ -340,6 +302,48 @@ module Commenter
       schema_target = File.join(schema_dir, schema_name)
       FileUtils.cp(schema_source, schema_target) unless File.expand_path(schema_source) == File.expand_path(schema_target)
       schema_target
+    end
+
+    def report_issue_results(results, dry_run)
+      if dry_run
+        puts "DRY RUN - Preview of issues to be created:"
+        puts "=" * 50
+        results.each do |result|
+          puts "\nComment ID: #{result[:comment_id]}"
+          puts "Title: #{result[:title]}"
+          puts "Labels: #{result[:labels].join(", ")}" if result[:labels]&.any?
+          puts "Assignees: #{result[:assignees].join(", ")}" if result[:assignees]&.any?
+          puts "Milestone: #{result[:milestone]}" if result[:milestone]
+          puts "\nBody preview (first 200 chars):"
+          puts result[:body][0...200] + (result[:body].length > 200 ? "..." : "")
+          puts "-" * 30
+        end
+        return nil
+      end
+
+      puts "GitHub issue creation results:"
+      puts "=" * 40
+
+      counts = Hash.new(0)
+      results.each do |result|
+        case result[:status]
+        when :created
+          counts[:created] += 1
+          puts "✓ #{result[:comment_id]}: Created issue ##{result[:issue_number]}"
+          puts "  URL: #{result[:issue_url]}"
+        when :skipped
+          counts[:skipped] += 1
+          puts "- #{result[:comment_id]}: Skipped (#{result[:message]})"
+          puts "  URL: #{result[:issue_url]}" if result[:issue_url]
+        when :error
+          counts[:error] += 1
+          puts "✗ #{result[:comment_id]}: Error - #{result[:message]}"
+        end
+      end
+
+      puts "\nSummary:"
+      puts "Created: #{counts[:created]}, Skipped: #{counts[:skipped]}, Errors: #{counts[:error]}"
+      counts[:error]
     end
   end
 end
