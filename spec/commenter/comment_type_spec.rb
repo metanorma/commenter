@@ -43,3 +43,19 @@ RSpec.describe Commenter::CommentType do
     end
   end
 end
+
+RSpec.describe Commenter::CommentType do
+  describe ".known?" do
+    it "accepts recognized codes and full names" do
+      expect(described_class.known?("te")).to be(true)
+      expect(described_class.known?("Technical")).to be(true)
+      expect(described_class.known?("editorial")).to be(true)
+    end
+
+    it "rejects combined or free-form values" do
+      expect(described_class.known?("ge/te")).to be(false)
+      expect(described_class.known?("")).to be(false)
+      expect(described_class.known?(nil)).to be(false)
+    end
+  end
+end

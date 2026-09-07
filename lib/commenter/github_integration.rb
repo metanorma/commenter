@@ -10,6 +10,7 @@ module Commenter
     THROTTLE_SECONDS = 1
     RATE_LIMIT_RETRY_DELAY = 60
     RATE_LIMIT_MAX_RETRIES = 3
+    MARKER_PREFIX = "urn:commenter"
 
     def initialize(config_path, title_template_path = nil, body_template_path = nil, client: nil)
       @session = GitHubSession.new(config_path)
@@ -153,7 +154,7 @@ module Commenter
         end
 
         title = @title_template.render(template_variables(comment, comment_sheet))
-        body = @body_template.render(template_variables(comment, comment_sheet))
+        body = body_with_marker(comment, comment_sheet)
 
         issue_options = {
           labels: determine_labels(comment, comment_sheet),
@@ -180,13 +181,26 @@ module Commenter
       end
     end
 
+    # Deterministic marker embedded in every created issue body, independent
+    # of the user's templates, so duplicate detection never has to rely on
+    # title matching alone (#1).
+    def issue_marker(comment, comment_sheet)
+      "#{MARKER_PREFIX}:#{@repo.downcase}:#{comment_sheet.stage.to_s.downcase}:#{comment.id}"
+    end
+
+    def body_with_marker(comment, comment_sheet)
+      rendered = @body_template.render(template_variables(comment, comment_sheet))
+      "#{rendered}\n\n---\n`#{issue_marker(comment, comment_sheet)}`"
+    end
+
     def recorded_issue(comment, comment_sheet)
       return nil unless comment.has_github_issue?
 
       number = comment.github_issue_number
       puts "[GitHubIssueCreator] Verifying recorded issue ##{number} for comment ID: #{comment.id}"
       issue = @github_client.issue(@repo, number)
-      if issue.title.include?(render_unique_id(comment, comment_sheet))
+      if issue.title.include?(render_unique_id(comment, comment_sheet)) ||
+         issue.body.to_s.include?(issue_marker(comment, comment_sheet))
         issue
       else
         puts "[GitHubIssueCreator] Recorded issue ##{number} does not match, falling back to title search."
@@ -247,8 +261,12 @@ module Commenter
       unique_id = render_unique_id(comment, comment_sheet)
       puts "[GitHubIssueCreator] Searching for existing issue with unique_id: #{unique_id}"
 
-      # Search for existing issues with the unique_id in the title
-      # The unique_id is configurable and defaults to "[STAGE] COMMENT_ID"
+      # The marker search is exact and template-independent (#1); the title
+      # search remains as a fallback for issues created before the marker.
+      marker = issue_marker(comment, comment_sheet)
+      marker_results = @github_client.search_issues("repo:#{@repo} in:body \"#{marker}\"")
+      return marker_results.items.first if marker_results.items.any?
+
       query = "repo:#{@repo} in:title \"#{unique_id}\""
       results = @github_client.search_issues(query)
       results.items.first
@@ -266,8 +284,9 @@ module Commenter
         labels.concat(stage_labels) if stage_labels
       end
 
-      # Add comment type label
-      labels << comment.type if comment.type
+      # Comment type label: only for a recognized single type — combined or
+      # free-form values ("ge/te") must not mint labels (#3).
+      labels << comment.type if CommentType.known?(comment.type)
 
       labels.uniq
     end
@@ -349,157 +368,6 @@ module Commenter
       end
 
       # Write updated YAML
-      output_file = options[:output] || yaml_file
-      File.write(output_file, comment_sheet.to_yaml_document)
-    end
-  end
-
-  class GitHubIssueRetriever
-    def initialize(config_path)
-      @session = GitHubSession.new(config_path)
-      @config = @session.config
-      @github_client = @session.client
-      @repo = @session.repo
-    end
-
-    def retrieve_observations_from_yaml(yaml_file, options = {})
-      comment_sheet = CommentSheet.from_yaml(File.read(yaml_file))
-
-      results = []
-      comment_sheet.comments.each do |comment|
-        next unless comment.has_github_issue?
-
-        result = if options[:dry_run]
-                   preview_observation_retrieval(comment, options)
-                 else
-                   retrieve_observation(comment, options)
-                 end
-        results << result
-      end
-
-      # Update YAML with observations (unless dry run)
-      update_yaml_with_observations(yaml_file, comment_sheet, options) unless options[:dry_run]
-
-      results
-    end
-
-    private
-
-    def retrieve_observation(comment, options)
-      issue_number = comment.github_issue_number
-
-      begin
-        issue = @github_client.issue(@repo, issue_number)
-
-        # Skip open issues unless explicitly included
-        if issue.state == "open" && !options[:include_open]
-          return {
-            comment_id: comment.id,
-            issue_number: issue_number,
-            status: :skipped,
-            message: "Issue is still open"
-          }
-        end
-
-        # Extract observation from issue comments
-        observation = extract_observation_from_issue(issue_number)
-
-        if observation
-          # Update comment with observation and current status
-          comment.observations = observation
-          comment.github.status = issue.state
-          comment.github.updated_at = Time.now.utc.iso8601
-
-          {
-            comment_id: comment.id,
-            issue_number: issue_number,
-            status: :retrieved,
-            observation: observation
-          }
-        else
-          {
-            comment_id: comment.id,
-            issue_number: issue_number,
-            status: :skipped,
-            message: "No observation found in issue"
-          }
-        end
-      rescue Octokit::Error => e
-        {
-          comment_id: comment.id,
-          issue_number: issue_number,
-          status: :error,
-          message: e.message
-        }
-      end
-    end
-
-    def preview_observation_retrieval(comment, _options)
-      issue_number = comment.github_issue_number
-
-      begin
-        issue = @github_client.issue(@repo, issue_number)
-        observation = extract_observation_from_issue(issue_number)
-
-        {
-          comment_id: comment.id,
-          issue_number: issue_number,
-          status: issue.state,
-          observation: observation
-        }
-      rescue Octokit::Error => e
-        {
-          comment_id: comment.id,
-          issue_number: issue_number,
-          status: :error,
-          message: e.message
-        }
-      end
-    end
-
-    def extract_observation_from_issue(issue_number)
-      comments = @github_client.issue_comments(@repo, issue_number)
-
-      # Look for magic comments with observation markers
-      observation_markers = @config.dig("github", "retrieval", "observation_markers") ||
-                            ["**OBSERVATION:**", "**COMMENTER OBSERVATION:**"]
-
-      # Search comments in reverse order (newest first)
-      comments.reverse_each do |comment|
-        observation = parse_observation_from_comment(comment.body, observation_markers)
-        return observation if observation
-      end
-
-      # Fallback to last comment if configured and no magic comment found
-      return comments.last.body.strip if @config.dig("github", "retrieval",
-                                                     "fallback_to_last_comment") && !comments.empty?
-
-      nil
-    rescue Octokit::Error
-      nil
-    end
-
-    def parse_observation_from_comment(comment_body, markers)
-      markers.each do |marker|
-        # Look for markdown blockquote with the marker
-        pattern = /^>\s*#{Regexp.escape(marker)}\s*\n((?:^>.*\n?)*)/m
-        match = comment_body.match(pattern)
-
-        next unless match
-
-        # Extract the blockquote content and clean it up
-        observation = match[1]
-                      .split("\n")
-                      .map { |line| line.sub(/^>\s?/, "") }
-                      .join("\n")
-                      .strip
-        return observation unless observation.empty?
-      end
-
-      nil
-    end
-
-    def update_yaml_with_observations(yaml_file, comment_sheet, options)
       output_file = options[:output] || yaml_file
       File.write(output_file, comment_sheet.to_yaml_document)
     end

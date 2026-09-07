@@ -294,7 +294,7 @@ Options:
 The commenter gem provides comprehensive GitHub integration for collaborative comment review and tracking. The workflow consists of two main commands:
 
 * `github-create` - Creates GitHub issues from comments and tracks them in YAML
-* `github-retrieve` - Retrieves final observations from closed GitHub issues
+* `github-retrieve` - Retrieves observations recorded in GitHub issues
 
 ==== Creating GitHub issues from comments
 
@@ -431,6 +431,18 @@ detection uses a **configurable unique identifier** that is:
 This ensures that the search pattern always matches what appears in the title,
 preventing synchronization issues.
 
+Every created issue body also carries a deterministic marker line, e.g.
++
+[source]
+----
+`urn:commenter:owner/repo:dis:GB-001`
+----
++
+Duplicate detection searches the issue bodies for this marker first — exact
+and template-independent — and falls back to the title search for issues
+created before the marker existed. Comment numbers already recorded in the
+comments YAML are verified with a direct read before any search runs.
+
 ===== Unique ID template
 
 The unique identifier is defined by the `unique_id` template in your configuration:
@@ -534,7 +546,7 @@ $ commenter github-retrieve --config github_config.yaml comments.yaml
 This command:
 
 * Reads GitHub issue information from the YAML file (no searching required)
-* Fetches observations from closed GitHub issues only
+* Fills in an observation whenever the issue carries one, open or closed
 * Updates the same YAML file with extracted observations
 * Preserves all existing comment data
 
@@ -561,7 +573,7 @@ Alternative shorter syntax:
 
 * `-c, --config FILE` - GitHub configuration YAML file (required)
 * `-o, --output FILE` - Output YAML file (default: update original)
-* `--include-open` - Include observations from open issues (not recommended)
+* `--include-open` - (Deprecated) observations are now filled from open issues too
 * `--dry-run` - Preview observations without updating YAML
 
 ===== Examples

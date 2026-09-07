@@ -35,5 +35,12 @@ module Commenter
     def display_name(type)
       DISPLAY_NAMES.fetch(type.to_s.strip.downcase) { type || "Unknown" }
     end
+
+    # True when the value is exactly one recognized comment type, in code or
+    # full-name spelling. Combined or free-form values ("ge/te") are not.
+    def known?(type)
+      downcased = type.to_s.strip.downcase
+      FULL_NAMES.key?(downcased) || FULL_NAMES.value?(downcased)
+    end
   end
 end
