@@ -20,6 +20,6 @@ module Commenter
   autoload :Parser, "commenter/parser"
   autoload :Filler, "commenter/filler"
   autoload :GitHubIssueCreator, "commenter/github_integration"
-  autoload :GitHubIssueRetriever, "commenter/github_integration"
+  autoload :GitHubIssueRetriever, "commenter/github_issue_retriever"
   autoload :GitHubSync, "commenter/github_sync"
 end

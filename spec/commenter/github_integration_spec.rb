@@ -4,9 +4,13 @@ require "spec_helper"
 require "tempfile"
 require "yaml"
 
-FakeIssue = Struct.new(:number, :title, :html_url, :state, :created_at, keyword_init: true)
+FakeIssue = Struct.new(:number, :title, :body, :html_url, :state, :created_at, keyword_init: true)
 FakeSearchResults = Struct.new(:items, keyword_init: true)
 FakeMilestone = Struct.new(:number, :title, keyword_init: true)
+MarkerIssue = Struct.new(:number, :html_url, :title, :body, :state, :created_at, keyword_init: true)
+MarkerResults = Struct.new(:items, keyword_init: true)
+RetrieverIssue = Struct.new(:number, :state, keyword_init: true)
+RetrieverComment = Struct.new(:body, keyword_init: true)
 
 # Real stand-in for the Octokit surface github-create uses: a seeded issue
 # store plus counters, so duplicate-prevention and retry behavior is
@@ -30,15 +34,19 @@ class FakeGitHubClient
   def search_issues(query)
     raise search_error if search_error
 
-    unique_id = query[/in:title "(.+)"\z/, 1]
-    FakeSearchResults.new(items: @issues.values.select { |i| i.title.include?(unique_id) })
+    if (marker = query[/in:body "(.+)"\z/, 1])
+      FakeSearchResults.new(items: @issues.values.select { |i| i.body.to_s.include?(marker) })
+    else
+      unique_id = query[/in:title "(.+)"\z/, 1]
+      FakeSearchResults.new(items: @issues.values.select { |i| i.title.include?(unique_id) })
+    end
   end
 
   def milestones(_repo, _options = {})
     [FakeMilestone.new(number: 1, title: "Test Milestone")]
   end
 
-  def create_issue(_repo, title, _body, _options = {})
+  def create_issue(_repo, title, body, _options = {})
     if @rate_limit_failures.positive?
       @rate_limit_failures -= 1
       rate_limited = Octokit::TooManyRequests.new(rate_limited_response)
@@ -46,7 +54,7 @@ class FakeGitHubClient
     end
 
     @next_number += 1
-    issue = FakeIssue.new(number: @next_number, title: title,
+    issue = FakeIssue.new(number: @next_number, title: title, body: body,
                           html_url: "https://example.test/issues/#{@next_number}",
                           state: "open", created_at: "2026-09-07T00:00:00Z")
     @issues[issue.number] = issue
@@ -416,5 +424,147 @@ RSpec.describe Commenter::GitHubIssueRetriever do
       expect(osd_yaml_file.open.read.lines.first)
         .to eq("# yaml-language-server: $schema=schema/iso_comment_osd.yaml\n")
     end
+  end
+end
+
+RSpec.describe Commenter::GitHubIssueCreator do
+  let(:config_file) do
+    file = Tempfile.new(["config", ".yaml"])
+    file.write({ "github" => { "repository" => "test-org/test-repo", "token" => "t",
+                               "default_labels" => ["comment-review"] } }.to_yaml)
+    file.close
+    file
+  end
+  let(:client) { Octokit::Client.new(access_token: "dummy") }
+  let(:creator) { described_class.new(config_file.path, client: client) }
+
+  def sheet_with(type)
+    Commenter::CommentSheet.new(stage: "DIS", comments: [
+                                  Commenter::Comment.new(id: "US-001", body: "US", type: type, comments: "Text")
+                                ])
+  end
+
+  after { config_file.unlink }
+
+  describe "comment type labels (#3)" do
+    it "labels recognized types and never mints labels from combined values" do
+      recognized = creator.create_issues_from_yaml(write_yaml(sheet_with("technical")), dry_run: true)
+      combined = creator.create_issues_from_yaml(write_yaml(sheet_with("ge/te")), dry_run: true)
+
+      expect(recognized.first[:labels]).to include("technical")
+      expect(combined.first[:labels]).to eq(["comment-review"])
+    end
+
+    def write_yaml(sheet)
+      file = Tempfile.new(["comments", ".yaml"])
+      file.write(sheet.to_yaml_document)
+      file.close
+      file
+    end
+  end
+
+  describe "issue marker (#1)" do
+    it "embeds the marker in created issue bodies" do
+      empty = MarkerResults.new(items: [])
+      allow(client).to receive(:search_issues).and_return(empty)
+      created = MarkerIssue.new(number: 9, html_url: "https://github.com/test-org/test-repo/issues/9",
+                                title: "T", body: "B", state: "open")
+      allow(client).to receive(:create_issue) { |_repo, _title, _body, _opts| created }
+
+      file = write_yaml_with_github(nil)
+      creator.create_issues_from_yaml(file)
+
+      expect(client).to have_received(:create_issue)
+        .with(anything, anything, %r{urn:commenter:test-org/test-repo:dis:US-001}, anything)
+      file.unlink
+    end
+
+    it "finds existing issues through the marker before the title search" do
+      marker_hit = MarkerIssue.new(number: 9, html_url: "u", title: "t", body: "b", state: "open", created_at: nil)
+      allow(client).to receive(:search_issues).with(/in:body/).and_return(MarkerResults.new(items: [marker_hit]))
+      allow(client).to receive(:search_issues).with(/in:title/).and_raise("title search must not run")
+
+      file = write_yaml_with_github(nil)
+      results = creator.create_issues_from_yaml(file)
+
+      expect(results.first[:status]).to eq(:skipped)
+      expect(results.first[:issue_number]).to eq(9)
+      file.unlink
+    end
+
+    it "verifies recorded issues by marker when the title does not carry the unique id" do
+      recorded = MarkerIssue.new(number: 9, html_url: "u", title: "Custom title", created_at: nil,
+                                 body: "discussed in `urn:commenter:test-org/test-repo:dis:US-001`", state: "open")
+      allow(client).to receive(:issue).with("test-org/test-repo", 9).and_return(recorded)
+      allow(client).to receive(:search_issues).and_raise("search must not run")
+
+      file = write_yaml_with_github(9)
+      results = creator.create_issues_from_yaml(file)
+
+      expect(results.first[:status]).to eq(:skipped)
+      file.unlink
+    end
+
+    def write_yaml_with_github(issue_number)
+      github = issue_number ? { "issue_number" => issue_number, "status" => "open" } : nil
+      file = Tempfile.new(["comments", ".yaml"])
+      file.write({ "version" => "2012-03", "stage" => "DIS",
+                   "comments" => [{ "id" => "US-001", "body" => "US", "comments" => "Text",
+                                    "github" => github }.compact] }.to_yaml)
+      file.close
+      file
+    end
+  end
+end
+
+RSpec.describe Commenter::GitHubIssueRetriever do
+  let(:config_file) do
+    file = Tempfile.new(["config", ".yaml"])
+    file.write({ "github" => { "repository" => "test-org/test-repo", "token" => "t" } }.to_yaml)
+    file.close
+    file
+  end
+  let(:client) { Octokit::Client.new(access_token: "dummy") }
+  let(:retriever) { described_class.new(config_file.path, client: client) }
+
+  after { config_file.unlink }
+
+  def retrieve_with(issue_state, comments)
+    Dir.mktmpdir do |dir|
+      input = File.join(dir, "comments.yaml")
+      File.write(input, { "version" => "2012-03",
+                          "comments" => [{ "id" => "US-001", "comments" => "Text",
+                                           "github" => { "issue_number" => 5, "status" => "open" } }] }.to_yaml)
+      allow(client).to receive(:issue).with("test-org/test-repo", 5)
+                                      .and_return(RetrieverIssue.new(number: 5, state: issue_state))
+      allow(client).to receive(:issue_comments).and_return(comments)
+
+      result = retriever.retrieve_observations_from_yaml(input)[0]
+      sheet = Commenter::CommentSheet.from_yaml(File.read(input))
+      [result, sheet.comments.first]
+    end
+  end
+
+  it "fills an observation from an open issue (#4)" do
+    result, comment = retrieve_with("open", [RetrieverComment.new(body: "> **OBSERVATION:**\n> Accepted.")])
+
+    expect(result[:status]).to eq(:retrieved)
+    expect(comment.observations).to eq("Accepted.")
+  end
+
+  it "skips an open issue only when no observation exists yet" do
+    result, comment = retrieve_with("open", [RetrieverComment.new(body: "Still discussing")])
+
+    expect(result[:status]).to eq(:skipped)
+    expect(result[:message]).to include("still open")
+    expect(comment.observations).to be_nil
+  end
+
+  it "fills observations from closed issues and records the status" do
+    result, comment = retrieve_with("closed", [RetrieverComment.new(body: "> **OBSERVATION:**\n> Noted.")])
+
+    expect(result[:status]).to eq(:retrieved)
+    expect(comment.observations).to eq("Noted.")
+    expect(comment.github_status).to eq("closed")
   end
 end
