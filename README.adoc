@@ -234,6 +234,18 @@ issue counts as *open*; no disposition at all counts as *undecided*). Use
 `--format yaml` for machine-readable output, and `-o report.md` to write to a
 file — the Markdown pastes directly into a GitHub issue or WG minutes.
 
+=== Validating a comment sheet
+
+The shipped schemas power IDE validation; `commenter validate` checks the
+same structure from the command line — unknown versions, missing ids or
+comment text, duplicate ids, and unrecognized comment types — and exits
+non-zero when errors are found, so it fits CI and pre-flight checks:
+
+[source,shell]
+----
+commenter validate ballot.yaml
+----
+
 === Comparing ballots between stages
 
 The same comment ID (`DE-001`) recurs at every ballot stage; comparing two
