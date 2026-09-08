@@ -14,6 +14,7 @@ module Commenter
   autoload :Ballot, "commenter/ballot"
   autoload :BallotReport, "commenter/ballot_report"
   autoload :BallotDiff, "commenter/ballot_diff"
+  autoload :SheetValidator, "commenter/sheet_validator"
   autoload :Comment, "commenter/comment"
   autoload :CommentSheet, "commenter/comment_sheet"
   autoload :GitHubSession, "commenter/github_session"

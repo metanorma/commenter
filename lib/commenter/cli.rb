@@ -86,6 +86,24 @@ module Commenter
       end
     end
 
+    desc "validate INPUT.yaml", "Check a comment sheet for structural problems"
+    def validate(input_yaml)
+      comment_sheet = CommentSheet.from_yaml(File.read(input_yaml))
+      problems = SheetValidator.call(comment_sheet)
+
+      if problems.empty?
+        puts "OK: #{comment_sheet.comments.length} comments, no problems found"
+        return
+      end
+
+      problems.each do |problem|
+        where = problem[:comment] ? "#{problem[:comment]}: " : ""
+        puts "#{problem[:severity].to_s.upcase}: #{where}#{problem[:message]}"
+      end
+      errors = problems.count { |problem| problem[:severity] == :error }
+      raise Commenter::Error, "#{errors} error(s) found in #{input_yaml}"
+    end
+
     desc "fill INPUT.yaml", "Fill DOCX template from YAML comments"
     option :output, type: :string, aliases: :o, default: "filled_comments.docx", desc: "Output DOCX file"
     option :template, type: :string, aliases: :t, desc: "Custom template file"
