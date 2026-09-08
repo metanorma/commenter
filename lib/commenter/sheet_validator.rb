@@ -28,9 +28,9 @@ module Commenter
       end
 
       duplicates = sheet.comments.group_by { |comment| comment.id.to_s }
-                                 .reject { |id, _| id.empty? }
-                                 .select { |_, comments| comments.length > 1 }
-                                 .keys
+                        .reject { |id, _| id.empty? }
+                        .select { |_, comments| comments.length > 1 }
+                        .keys
       duplicates.sort.each do |id|
         problems << { severity: :error, comment: id, message: "duplicate comment id #{id}" }
       end
