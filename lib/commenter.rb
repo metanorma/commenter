@@ -22,6 +22,7 @@ module Commenter
   autoload :Filler, "commenter/filler"
   autoload :GitHubIssueCreator, "commenter/github_integration"
   autoload :IssueMarker, "commenter/issue_marker"
+  autoload :MilestoneResolver, "commenter/milestone_resolver"
   autoload :GitHubIssueRetriever, "commenter/github_issue_retriever"
   autoload :GitHubSync, "commenter/github_sync"
 end

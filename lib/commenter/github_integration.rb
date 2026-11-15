@@ -301,48 +301,13 @@ module Commenter
     end
 
     def determine_milestone(_comment, _comment_sheet, _options)
-      # # Check for stage-specific milestone
-      # if comment_sheet.stage
-      #   stage_milestone = @config.dig("github", "stage_milestones", comment_sheet.stage)
-      #   if stage_milestone
-      #     milestone_number = resolve_milestone_by_name_or_number(stage_milestone)
-      #     return milestone_number if milestone_number
-      #   end
-      # end
-
-      # Use configured milestone
       milestone_config = @config.dig("github", "milestone")
       return nil unless milestone_config
 
-      if milestone_config["number"]
-        puts "[GitHubIssueCreator] Using milestone number: #{milestone_config["number"]}"
-        milestone_config["number"]
-      elsif milestone_config["name"]
-        # Resolved once per run and memoized: resolving per comment caused
-        # duplicated milestone fetches (see 3a06c3d).
-        @milestone_number ||= begin
-          puts "[GitHubIssueCreator] Using milestone name: #{milestone_config["name"]}"
-          resolve_milestone_by_name_or_number(milestone_config["name"])
-        end
-      end
-    end
-
-    def resolve_milestone_by_name_or_number(milestone_identifier)
-      # If it's a number, return it directly
-      return milestone_identifier.to_i if milestone_identifier.to_s.match?(/^\d+$/)
-
-      # Otherwise, search by name
-      find_milestone_by_name(milestone_identifier)
-    end
-
-    def find_milestone_by_name(name)
-      milestones = @github_client.milestones(@repo, state: "all")
-
-      puts "[GitHubIssueCreator] Found #{milestones.size} milestones in repository #{@repo}" if milestones.any?
-      milestone = milestones.find { |m| m.title == name }
-      milestone&.number
-    rescue Octokit::Error
-      nil
+      # Memoized: resolving per comment caused duplicated milestone fetches
+      # (see 3a06c3d).
+      @milestone_number ||= MilestoneResolver.new(@github_client, @repo, milestone_config).number
+      @milestone_number
     end
 
     def update_yaml_with_github_info(yaml_file, comment_sheet, results, options)
