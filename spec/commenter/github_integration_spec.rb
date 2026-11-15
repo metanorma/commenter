@@ -17,13 +17,14 @@ RetrieverComment = Struct.new(:body, keyword_init: true)
 # exercised against an object with the same protocol as Octokit::Client.
 class FakeGitHubClient
   attr_accessor :rate_limit_failures, :search_error
-  attr_reader :created
+  attr_reader :created, :created_milestones
 
   def initialize(existing_issues = [])
     @issues = {}
     existing_issues.each { |issue| @issues[issue.number] = issue }
     @next_number = @issues.keys.max.to_i
     @created = []
+    @created_milestones = []
     @rate_limit_failures = 0
   end
 
@@ -44,6 +45,12 @@ class FakeGitHubClient
 
   def milestones(_repo, _options = {})
     [FakeMilestone.new(number: 1, title: "Test Milestone")]
+  end
+
+  def create_milestone(_repo, title, _options = {})
+    milestone = FakeMilestone.new(number: 100 + @created_milestones.length + 1, title: title)
+    @created_milestones << milestone
+    milestone
   end
 
   def create_issue(_repo, title, body, _options = {})
@@ -172,6 +179,36 @@ RSpec.describe Commenter::GitHubIssueCreator do
         .to raise_error("GitHub repository not specified in config")
 
       file.unlink
+    end
+  end
+
+  describe "milestone handling" do
+    let(:client) { FakeGitHubClient.new }
+    let(:creator) do
+      described_class.new(config_file.path, title_template_file.path, body_template_file.path, client: client)
+    end
+
+    it "creates the milestone when create_if_missing is set" do
+      config_data["github"]["milestone"] = {
+        "name" => "Fresh Milestone",
+        "create_if_missing" => true,
+        "description" => "Created by specs",
+        "due_date" => "2026-12-31"
+      }
+
+      result = creator.create_issues_from_yaml(yaml_file.path, dry_run: true).first
+
+      expect(result[:milestone]).to eq(101)
+      expect(client.created_milestones.map(&:title)).to eq(["Fresh Milestone"])
+    end
+
+    it "leaves the milestone unset when missing without create_if_missing" do
+      config_data["github"]["milestone"] = { "name" => "Absent Milestone" }
+
+      result = creator.create_issues_from_yaml(yaml_file.path, dry_run: true).first
+
+      expect(result[:milestone]).to be_nil
+      expect(client.created_milestones).to be_empty
     end
   end
 
