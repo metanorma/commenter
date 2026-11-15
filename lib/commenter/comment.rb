@@ -100,9 +100,21 @@ module Commenter
       locality.element = value
     end
 
+    # Public so every consumer (summaries, issue templates) renders locality
+    # through one implementation.
+    def locality_summary
+      parts = []
+      if clause && !clause.strip.empty?
+        parts << (clause.strip.match?(/\Aclause\b/i) ? clause : "Clause #{clause}")
+      end
+      parts << element if element && !element.strip.empty?
+      parts << "Line #{line_number}" if line_number && !line_number.strip.empty?
+      parts.join(", ")
+    end
+
     def brief_summary(max_length = 60)
       description = comments.to_s.split(/[.!?\n]/).map(&:strip).reject(&:empty?).first.to_s
-      locality_text = format_locality
+      locality_text = locality_summary
 
       if description.empty?
         locality_text.empty? ? "No description" : locality_text
@@ -142,16 +154,6 @@ module Commenter
     def record_github_issue(issue_number:, issue_url:, status:, created_at: nil)
       self.github = GithubInfo.new(issue_number: issue_number, issue_url: issue_url,
                                    status: status, created_at: created_at)
-    end
-
-    private
-
-    def format_locality
-      parts = []
-      parts << "Clause #{clause}" if clause && !clause.strip.empty?
-      parts << element if element && !element.strip.empty?
-      parts << "Line #{line_number}" if line_number && !line_number.strip.empty?
-      parts.join(", ")
     end
   end
 end

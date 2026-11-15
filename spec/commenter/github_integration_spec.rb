@@ -356,6 +356,14 @@ RSpec.describe Commenter::GitHubIssueCreator do
       file
     end
 
+    it "does not double the Clause prefix in locality_summary" do
+      yaml_data["comments"].first["locality"]["clause"] = "Clause 4 and document"
+
+      result = creator.create_issues_from_yaml(yaml_file.path, dry_run: true).first
+
+      expect(result[:title]).to include("Clause 4 and document|")
+    end
+
     it "exposes sheet, comment, and computed variables to templates" do
       result = creator.create_issues_from_yaml(yaml_file.path, dry_run: true).first
       variables = result[:title].split("|")
