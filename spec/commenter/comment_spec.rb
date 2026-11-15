@@ -81,6 +81,18 @@ RSpec.describe Commenter::Comment do
         expect(summary).to include("Line 42")
       end
 
+      it "does not prefix Clause when the clause already names it" do
+        comment = described_class.new(
+          locality: { clause: "Clause 4 and document" },
+          comments: "Comment text"
+        )
+
+        summary = comment.brief_summary
+
+        expect(summary).to start_with("Clause 4 and document:")
+        expect(summary).not_to include("Clause Clause")
+      end
+
       it "handles empty locality gracefully" do
         comment = described_class.new(
           locality: { clause: "" },
@@ -228,6 +240,22 @@ RSpec.describe Commenter::Comment do
       expect(comment).to be_a(described_class)
       expect(comment.id).to eq("US-001")
       expect(comment.clause).to eq("5.1")
+    end
+  end
+end
+
+RSpec.describe Commenter::Comment do
+  describe "#locality_summary" do
+    it "formats clause, element, and line number" do
+      comment = described_class.new(locality: { clause: "5.1", element: "Table 1", line_number: "42" })
+
+      expect(comment.locality_summary).to eq("Clause 5.1, Table 1, Line 42")
+    end
+
+    it "does not double the Clause prefix when the clause already names it" do
+      comment = described_class.new(locality: { clause: "Clause 4 and document" })
+
+      expect(comment.locality_summary).to eq("Clause 4 and document")
     end
   end
 end

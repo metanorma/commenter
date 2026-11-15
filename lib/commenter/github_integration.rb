@@ -107,7 +107,7 @@ module Commenter
         "unique_id" => unique_id,
         "has_observations" => !comment.observations.nil? && !comment.observations.strip.empty?,
         "has_proposed_change" => !comment.proposed_change.nil? && !comment.proposed_change.strip.empty?,
-        "locality_summary" => format_locality(comment)
+        "locality_summary" => comment.locality_summary
       }
     end
 
@@ -121,14 +121,6 @@ module Commenter
         "type" => comment.type || ""
       }
       @unique_id_template.render(base_variables).strip
-    end
-
-    def format_locality(comment)
-      parts = []
-      parts << "Clause #{comment.clause}" if comment.clause && !comment.clause.strip.empty?
-      parts << comment.element if comment.element && !comment.element.strip.empty?
-      parts << "Line #{comment.line_number}" if comment.line_number && !comment.line_number.strip.empty?
-      parts.join(", ")
     end
 
     def create_issue(comment, comment_sheet, options = {})
