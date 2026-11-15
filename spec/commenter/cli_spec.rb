@@ -101,3 +101,41 @@ RSpec.describe Commenter::Cli do
     end
   end
 end
+
+RSpec.describe Commenter::Cli do
+  describe "#validate" do
+    def sheet_file(data)
+      file = Tempfile.new(["sheet", ".yaml"])
+      file.write(data.to_yaml)
+      file.close
+      file
+    end
+
+    it "passes a sheet at the AWI stage" do
+      file = sheet_file({ "version" => "2012-03", "stage" => "AWI",
+                          "comments" => [{ "id" => "DE-001", "body" => "DE", "comments" => "Text" }] })
+
+      expect { described_class.start(["validate", file.path]) }
+        .to output(a_string_including("OK:", "no problems found")).to_stdout
+      file.unlink
+    end
+
+    it "does not fail when only warnings are found" do
+      file = sheet_file({ "version" => "2012-03", "stage" => "CUSTOM",
+                          "comments" => [{ "id" => "DE-001", "body" => "DE", "comments" => "Text" }] })
+
+      expect { described_class.start(["validate", file.path]) }
+        .to output(a_string_including('WARNING: unusual stage "CUSTOM"', "1 warning(s)")).to_stdout
+      file.unlink
+    end
+
+    it "fails when errors are found" do
+      file = sheet_file({ "version" => "2012-03",
+                          "comments" => [{ "id" => "DE-001", "body" => "DE" }] })
+
+      expect { described_class.start(["validate", file.path]) }
+        .to raise_error(Commenter::Error, a_string_including("1 error(s)"))
+      file.unlink
+    end
+  end
+end

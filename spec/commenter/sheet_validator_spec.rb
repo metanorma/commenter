@@ -22,6 +22,10 @@ RSpec.describe Commenter::SheetValidator do
     expect(problems).to include(severity: :warning, message: a_string_including("unusual stage"))
   end
 
+  it "accepts the AWI stage without a warning" do
+    expect(described_class.call(sheet([comment("DE-001")], stage: "AWI"))).to eq([])
+  end
+
   it "reports missing ids, missing text, and duplicate ids as errors" do
     problems = described_class.call(sheet([
                                             comment("", text: "No id"),

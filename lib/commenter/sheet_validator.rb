@@ -8,7 +8,7 @@ module Commenter
   # :message. An empty list means the sheet is valid.
   module SheetValidator
     VERSIONS = %w[2012-03 osd].freeze
-    STAGES = %w[WD CD DIS FDIS PRF PUB].freeze
+    STAGES = %w[AWI WD CD DIS FDIS PRF PUB].freeze
 
     module_function
 

@@ -91,17 +91,23 @@ module Commenter
       comment_sheet = CommentSheet.from_yaml(File.read(input_yaml))
       problems = SheetValidator.call(comment_sheet)
 
-      if problems.empty?
-        puts "OK: #{comment_sheet.comments.length} comments, no problems found"
-        return
-      end
-
       problems.each do |problem|
         where = problem[:comment] ? "#{problem[:comment]}: " : ""
         puts "#{problem[:severity].to_s.upcase}: #{where}#{problem[:message]}"
       end
+
       errors = problems.count { |problem| problem[:severity] == :error }
-      raise Commenter::Error, "#{errors} error(s) found in #{input_yaml}"
+      warnings = problems.count { |problem| problem[:severity] == :warning }
+
+      # Warnings surface unusual-but-legal sheets (e.g. an early-stage draft)
+      # and must not fail CI on their own; only errors are fatal.
+      raise Commenter::Error, "#{errors} error(s), #{warnings} warning(s) found in #{input_yaml}" if errors.positive?
+
+      if problems.empty?
+        puts "OK: #{comment_sheet.comments.length} comments, no problems found"
+      else
+        puts "#{comment_sheet.comments.length} comments valid, #{warnings} warning(s)"
+      end
     end
 
     desc "fill INPUT.yaml", "Fill DOCX template from YAML comments"
