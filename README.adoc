@@ -246,6 +246,11 @@ non-zero when errors are found, so it fits CI and pre-flight checks:
 commenter validate ballot.yaml
 ----
 
+Known stages are AWI, WD, CD, DIS, FDIS, PRF, and PUB. A sheet at an
+unusual stage (or with an unrecognized comment type) produces a WARNING,
+which is informational only — a non-zero exit always means errors were
+found.
+
 === Comparing ballots between stages
 
 The same comment ID (`DE-001`) recurs at every ballot stage; comparing two
@@ -331,6 +336,8 @@ github:
   token: "ghp_xxxxxxxxxxxx"
   milestone:
     name: "ISO 80000-2 DIS Review"
+    # Creates the milestone when it does not exist yet
+    create_if_missing: true
   default_labels: ["comment-review", "iso-standard"]
   stage_labels:
     WD: ["working-draft"]
@@ -350,7 +357,7 @@ templates are provided, but you can customize them.
 
 The title template (`data/github_issue_title_template.liquid`) supports these variables:
 
-* `stage` - Approval stage (WD/CD/DIS/FDIS/PRF/PUB)
+* `stage` - Approval stage (AWI/WD/CD/DIS/FDIS/PRF/PUB)
 * `document` - Document identifier
 * `comment_id` - Comment identifier
 * `brief_summary` - Generated summary combining locality and description
@@ -447,13 +454,22 @@ Every created issue body also carries a deterministic marker line, e.g.
 +
 [source]
 ----
-`urn:commenter:owner/repo:dis:GB-001`
+`urn:commenter:owner/repo:dis:iso1234-2:2019:gb-001`
 ----
 +
-Duplicate detection searches the issue bodies for this marker first — exact
-and template-independent — and falls back to the title search for issues
-created before the marker existed. Comment numbers already recorded in the
-comments YAML are verified with a direct read before any search runs.
+The marker includes the sheet's document (compacted and lowercased), so
+the same comment ID (`GB-001`) posted for two different documents of one
+repository never collides. Sheets without a `document` field keep the
+older, document-less marker shape.
+
+Duplicate detection searches the issue bodies for this marker first —
+exact and template-independent. It then falls back to the document-less
+marker for issues created before the document segment existed, and to the
+title search for issues created before markers existed at all; those two
+fallbacks are ambiguous when the same comment ID exists for several
+documents, so a fallback hit counts only when the issue itself names the
+sheet's document. Comment numbers already recorded in the comments YAML
+are verified with a direct read before any search runs.
 
 ===== Unique ID template
 
@@ -542,7 +558,10 @@ By default an open issue whose comment has a recorded disposition
 `github-retrieve` round-trip working, since observations are retrieved from
 closed issues. Disable with `--no-close-on-disposition`.
 
-The milestone is resolved once per run and reused for every issue.
+The milestone is resolved once per run and reused for every issue. When
+`create_if_missing` is set and no milestone carries that name, the
+milestone is created on first use (honoring `description` and `due_date`
+from the same config block).
 
 ==== Retrieving observations from GitHub issues
 
