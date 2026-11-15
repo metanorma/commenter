@@ -10,7 +10,6 @@ module Commenter
     THROTTLE_SECONDS = 1
     RATE_LIMIT_RETRY_DELAY = 60
     RATE_LIMIT_MAX_RETRIES = 3
-    MARKER_PREFIX = "urn:commenter"
 
     def initialize(config_path, title_template_path = nil, body_template_path = nil, client: nil)
       @session = GitHubSession.new(config_path)
@@ -181,16 +180,9 @@ module Commenter
       end
     end
 
-    # Deterministic marker embedded in every created issue body, independent
-    # of the user's templates, so duplicate detection never has to rely on
-    # title matching alone (#1).
-    def issue_marker(comment, comment_sheet)
-      "#{MARKER_PREFIX}:#{@repo.downcase}:#{comment_sheet.stage.to_s.downcase}:#{comment.id}"
-    end
-
     def body_with_marker(comment, comment_sheet)
       rendered = @body_template.render(template_variables(comment, comment_sheet))
-      "#{rendered}\n\n---\n`#{issue_marker(comment, comment_sheet)}`"
+      "#{rendered}\n\n---\n`#{IssueMarker.for(comment, comment_sheet, @repo)}`"
     end
 
     def recorded_issue(comment, comment_sheet)
@@ -200,14 +192,14 @@ module Commenter
       puts "[GitHubIssueCreator] Verifying recorded issue ##{number} for comment ID: #{comment.id}"
       issue = @github_client.issue(@repo, number)
       if issue.title.include?(render_unique_id(comment, comment_sheet)) ||
-         issue.body.to_s.include?(issue_marker(comment, comment_sheet))
+         issue.body.to_s.include?(IssueMarker.for(comment, comment_sheet, @repo))
         issue
       else
-        puts "[GitHubIssueCreator] Recorded issue ##{number} does not match, falling back to title search."
+        puts "[GitHubIssueCreator] Recorded issue ##{number} does not match, falling back to search."
         nil
       end
     rescue Octokit::NotFound
-      puts "[GitHubIssueCreator] Recorded issue ##{number} no longer exists, falling back to title search."
+      puts "[GitHubIssueCreator] Recorded issue ##{number} no longer exists, falling back to search."
       nil
     end
 
@@ -257,19 +249,29 @@ module Commenter
       }
     end
 
+    # Duplicate detection runs in three tiers: the document-qualified marker
+    # is exact; the legacy marker and the title match are ambiguous when two
+    # documents share a comment id, so those hits count only when the issue
+    # itself names this document.
     def find_existing_issue(comment, comment_sheet)
       unique_id = render_unique_id(comment, comment_sheet)
       puts "[GitHubIssueCreator] Searching for existing issue with unique_id: #{unique_id}"
 
-      # The marker search is exact and template-independent (#1); the title
-      # search remains as a fallback for issues created before the marker.
-      marker = issue_marker(comment, comment_sheet)
-      marker_results = @github_client.search_issues("repo:#{@repo} in:body \"#{marker}\"")
-      return marker_results.items.first if marker_results.items.any?
+      search_issues("body", IssueMarker.for(comment, comment_sheet, @repo)) ||
+        search_issues("body", IssueMarker.legacy_for(comment, comment_sheet, @repo), verify: comment_sheet) ||
+        search_issues("title", unique_id, verify: comment_sheet)
+    end
 
-      query = "repo:#{@repo} in:title \"#{unique_id}\""
-      results = @github_client.search_issues(query)
-      results.items.first
+    def search_issues(field, term, verify: nil)
+      issues = @github_client.search_issues("repo:#{@repo} in:#{field} \"#{term}\"").items
+      return issues.first if verify.nil?
+      return nil if IssueMarker.document_segment(verify).nil?
+
+      issues.find { |issue| names_document?(issue, verify.document) }
+    end
+
+    def names_document?(issue, document)
+      issue.title.to_s.include?(document) || issue.body.to_s.include?(document)
     end
 
     def determine_labels(comment, comment_sheet)

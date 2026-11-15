@@ -240,7 +240,7 @@ RSpec.describe Commenter::GitHubIssueCreator do
       end
 
       it "falls back to search when the recorded issue no longer exists" do
-        client = FakeGitHubClient.new([seeded_issue(5, "[DIS] US-001: posted earlier")])
+        client = FakeGitHubClient.new([seeded_issue(5, "[DIS] US-001: posted earlier (Test Document)")])
         sheet = write_sheet([yaml_data["comments"].first.merge("github" => { "issue_number" => 99 })])
         creator = described_class.new(config_file.path, title_template_file.path,
                                       body_template_file.path, client: client)
@@ -256,7 +256,7 @@ RSpec.describe Commenter::GitHubIssueCreator do
 
       it "falls back to search when the recorded issue title does not match the stage" do
         client = FakeGitHubClient.new([seeded_issue(7, "[WD] US-001: different stage"),
-                                       seeded_issue(5, "[DIS] US-001: posted earlier")])
+                                       seeded_issue(5, "[DIS] US-001: posted earlier (Test Document)")])
         sheet = write_sheet([yaml_data["comments"].first.merge("github" => { "issue_number" => 7 })])
         creator = described_class.new(config_file.path, title_template_file.path,
                                       body_template_file.path, client: client)
@@ -270,7 +270,7 @@ RSpec.describe Commenter::GitHubIssueCreator do
       end
 
       it "records the issue in the YAML when skipping via title search" do
-        client = FakeGitHubClient.new([seeded_issue(5, "[DIS] US-001: posted earlier")])
+        client = FakeGitHubClient.new([seeded_issue(5, "[DIS] US-001: posted earlier (Test Document)")])
         sheet = write_sheet(yaml_data["comments"])
         creator = described_class.new(config_file.path, title_template_file.path,
                                       body_template_file.path, client: client)
@@ -505,12 +505,57 @@ RSpec.describe Commenter::GitHubIssueCreator do
       file.unlink
     end
 
-    def write_yaml_with_github(issue_number)
+    it "embeds the document in the marker when the sheet has one" do
+      client = FakeGitHubClient.new
+      creator = described_class.new(config_file.path, client: client)
+
+      file = write_yaml_with_github(nil, document: "ISO 80000-2:2019")
+      results = creator.create_issues_from_yaml(file)
+
+      expect(results.first[:status]).to eq(:created)
+      expect(client.created.first.body)
+        .to match(%r{urn:commenter:test-org/test-repo:dis:iso80000-2:2019:US-001})
+      file.unlink
+    end
+
+    it "creates a new issue when a same-id issue exists for another document (legacy marker)" do
+      other = FakeIssue.new(number: 9, title: "[DIS] US-001 (Doc A)",
+                            body: "x `urn:commenter:test-org/test-repo:dis:US-001`",
+                            html_url: "u", state: "open", created_at: "2026-01-01T00:00:00Z")
+      client = FakeGitHubClient.new([other])
+      creator = described_class.new(config_file.path, client: client)
+
+      file = write_yaml_with_github(nil, document: "Doc B")
+      results = creator.create_issues_from_yaml(file)
+
+      expect(results.first[:status]).to eq(:created)
+      expect(results.first[:issue_number]).to eq(10)
+      file.unlink
+    end
+
+    it "skips via the legacy marker only when the existing issue names this document" do
+      legacy = FakeIssue.new(number: 9, title: "[DIS] US-001 Doc B",
+                             body: "x `urn:commenter:test-org/test-repo:dis:US-001`",
+                             html_url: "u", state: "open", created_at: "2026-01-01T00:00:00Z")
+      client = FakeGitHubClient.new([legacy])
+      creator = described_class.new(config_file.path, client: client)
+
+      file = write_yaml_with_github(nil, document: "Doc B")
+      results = creator.create_issues_from_yaml(file)
+
+      expect(results.first[:status]).to eq(:skipped)
+      expect(results.first[:issue_number]).to eq(9)
+      file.unlink
+    end
+
+    def write_yaml_with_github(issue_number, document: nil)
       github = issue_number ? { "issue_number" => issue_number, "status" => "open" } : nil
+      sheet = { "version" => "2012-03", "stage" => "DIS",
+                "comments" => [{ "id" => "US-001", "body" => "US", "comments" => "Text",
+                                 "github" => github }.compact] }
+      sheet["document"] = document unless document.nil?
       file = Tempfile.new(["comments", ".yaml"])
-      file.write({ "version" => "2012-03", "stage" => "DIS",
-                   "comments" => [{ "id" => "US-001", "body" => "US", "comments" => "Text",
-                                    "github" => github }.compact] }.to_yaml)
+      file.write(sheet.to_yaml)
       file.close
       file
     end
